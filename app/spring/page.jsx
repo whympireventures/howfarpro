@@ -18,7 +18,7 @@ export default function SpringLocationsExplorer() {
     const loadData = async () => {
       try {
         setIsLoading(true);
-        const backendUrl = 'https://locate-my-city-backend-production-e8a2.up.railway.app';
+        const backendUrl = 'https://backend-production-cfe6.up.railway.app';
         console.log("Fetching from:", backendUrl);
 
         const response = await fetch(`${backendUrl}/api/springs/flat`);
