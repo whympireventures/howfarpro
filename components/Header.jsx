@@ -41,16 +41,7 @@ export default function Header() {
             </nav>
           </div>
         </div>
-        <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-MZ2JZL4WKS"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-MZ2JZL4WKS');
-</script>
-      </header>
+             </header>
 
       
     </>
