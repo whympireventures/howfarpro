@@ -7,15 +7,6 @@ import Link from 'next/link';
 export default function Header() {
   return (
     <>
-      <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-MZ2JZL4WKS"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-MZ2JZL4WKS');
-</script>
       <Head>
         <title>LocateMyCity</title>
         <meta name="description" content="LocateMyCity helps you instantly explore locations worldwide - from ghost towns to booming cities. Find distances, compare locations, discover rock formations & springs. Fast, precise geographic information at your fingertips." />
@@ -50,6 +41,15 @@ export default function Header() {
             </nav>
           </div>
         </div>
+        <!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-MZ2JZL4WKS"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-MZ2JZL4WKS');
+</script>
       </header>
 
       
