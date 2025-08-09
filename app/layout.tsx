@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Script from "next/script"; // ✅ Google Analytics needs this
+import Script from "next/script"; // ✅ Google Analytics
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,19 +14,26 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LocateMyCity",
-  description: "LocateMyCity helps you instantly explore locations worldwide - from ghost towns to booming cities. Find distances, compare locations, and explore natural features.",
+  title: "How Far From Me",
+  description:
+    "How far from mee helps you instantly explore locations worldwide - from ghost towns to booming cities. Find distances, compare locations, and explore natural features.",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en">
       <head>
-        {/* ✅ Google Analytics Script */}
+        {/* ✅ Leaflet CSS for all maps */}
+        <link
+          rel="stylesheet"
+          href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        />
+
+        {/* ✅ Google Analytics */}
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-MZ2JZL4WKS"
           strategy="afterInteractive"
@@ -40,9 +47,7 @@ export default function RootLayout({
           `}
         </Script>
       </head>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {children}
       </body>
     </html>
