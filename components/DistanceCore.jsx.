@@ -1,0 +1,156 @@
+'use client';
+import { useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
+
+const SmartMap = dynamic(() => import('@/components/SmartMap'), { ssr: false });
+
+const UA = { 'User-Agent': 'howfarfromme.com (contact: dev@howfarfromme.com)' };
+const toRad = (d) => d * Math.PI / 180;
+const kmToMiles = (km) => km * 0.621371;
+
+async function geocodePlace(name) {
+  if (!name) return null;
+  const res = await fetch(
+    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(name)}&format=json&limit=1`,
+    { headers: UA }
+  );
+  const data = await res.json();
+  const p = data?.[0];
+  return p ? { lat: +p.lat, lng: +p.lon } : null;
+}
+
+/**
+ * DistanceCore
+ * Props:
+ *  - destinationName: string (required). Accepts "miami" or "new-york" or "New York"
+ *  - originName?: string (optional if geolocateOrigin = true)
+ *  - geolocateOrigin?: boolean (default false) -> use browser location as origin
+ *  - titlePrefix?: string (default: "How far is")
+ */
+export default function DistanceCore({
+  destinationName,
+  originName,
+  geolocateOrigin = false,
+  titlePrefix = 'How far is',
+}) {
+  const pretty = (s) => (s || '').replace(/-/g, ' ').trim();
+
+  const destLabel = useMemo(() => pretty(destinationName), [destinationName]);
+  const originLabel = useMemo(() => pretty(originName), [originName]);
+
+  const [origin, setOrigin] = useState(null); // { lat, lng }
+  const [dest, setDest] = useState(null);     // { lat, lng }
+  const [km, setKm] = useState(0);
+  const [unit, setUnit] = useState('km');
+  const [status, setStatus] = useState('init'); // init | locating | geocoding | ready | error
+
+  // Origin: geolocate or geocode by name
+  useEffect(() => {
+    (async () => {
+      try {
+        if (geolocateOrigin) {
+          setStatus('locating');
+          if (!navigator?.geolocation) {
+            setOrigin({ lat: 40.7128, lng: -74.0060 }); // NYC fallback
+            return;
+          }
+          navigator.geolocation.getCurrentPosition(
+            ({ coords }) => setOrigin({ lat: coords.latitude, lng: coords.longitude }),
+            () => setOrigin({ lat: 40.7128, lng: -74.0060 }),
+            { enableHighAccuracy: true, timeout: 10000 }
+          );
+        } else if (originLabel) {
+          setStatus('geocoding');
+          const o = await geocodePlace(originLabel);
+          setOrigin(o);
+        }
+      } catch {
+        setStatus('error');
+      }
+    })();
+  }, [geolocateOrigin, originLabel]);
+
+  // Destination: always geocode
+  useEffect(() => {
+    (async () => {
+      try {
+        setStatus('geocoding');
+        const d = await geocodePlace(destLabel);
+        setDest(d);
+      } catch {
+        setStatus('error');
+      }
+    })();
+  }, [destLabel]);
+
+  // Compute distance
+  useEffect(() => {
+    if (!origin || !dest) return;
+    const R = 6371;
+    const dLat = toRad(dest.lat - origin.lat);
+    const dLon = toRad(dest.lng - origin.lng);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(origin.lat)) *
+        Math.cos(toRad(dest.lat)) *
+        Math.sin(dLon / 2) ** 2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    setKm(R * c);
+    setStatus('ready');
+  }, [origin, dest]);
+
+  const distanceText =
+    km ? (unit === 'km' ? `${km.toFixed(1)} km` : `${kmToMiles(km).toFixed(1)} mi`) : '--';
+
+  return (
+    <main style={styles.main}>
+      <h1 style={styles.h1}>
+        {titlePrefix} {destLabel} {geolocateOrigin ? 'from me' : (originLabel ? `from ${originLabel}` : '')}?
+      </h1>
+
+      <section style={styles.card}>
+        <div style={styles.row}><strong>Status:</strong>&nbsp;<span>{status}</span></div>
+        <div style={styles.row}><strong>Origin:</strong>&nbsp;
+          <span>{origin ? `${origin.lat.toFixed(5)}, ${origin.lng.toFixed(5)}` : (geolocateOrigin ? 'locating…' : (originLabel ? 'geocoding…' : '—'))}</span>
+        </div>
+        <div style={styles.row}><strong>Destination:</strong>&nbsp;
+          <span>{dest ? `${dest.lat.toFixed(5)}, ${dest.lng.toFixed(5)}` : 'geocoding…'}</span>
+        </div>
+        <div style={{ ...styles.row, fontSize: 22, marginTop: 8 }}>
+          <strong>Distance:</strong>&nbsp;<span>{distanceText}</span>
+        </div>
+        <div style={{ marginTop: 10 }}>
+          <button
+            style={{ ...styles.btn, ...(unit === 'km' ? styles.btnActive : {}) }}
+            onClick={() => setUnit('km')}
+          >Kilometers</button>
+          <button
+            style={{ ...styles.btn, ...(unit === 'mi' ? styles.btnActive : {}) }}
+            onClick={() => setUnit('mi')}
+          >Miles</button>
+        </div>
+      </section>
+
+      <section style={styles.card}>
+        <h3 style={styles.h3}>Map</h3>
+        <div style={{ height: 420 }}>
+          {origin && dest ? (
+            <SmartMap sourceCoords={origin} destinationCoords={dest} distance={km} />
+          ) : (
+            'Waiting for coordinates…'
+          )}
+        </div>
+      </section>
+    </main>
+  );
+}
+
+const styles = {
+  main: { maxWidth: 900, margin: '40px auto', padding: '0 16px', fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial' },
+  h1: { fontSize: 28, marginBottom: 16 },
+  h3: { marginTop: 0 },
+  card: { background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: 16, marginBottom: 16, boxShadow: '0 1px 2px rgba(0,0,0,.04)' },
+  row: { display: 'flex', alignItems: 'center', margin: '4px 0' },
+  btn: { padding: '6px 10px', marginRight: 8, borderRadius: 8, border: '1px solid #ddd', cursor: 'pointer', background: '#f7f7f7' },
+  btnActive: { borderColor: '#111', background: '#e9e9e9' },
+};
