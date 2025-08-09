@@ -1,161 +1,175 @@
 'use client';
-import { useEffect, useMemo, useRef, useState } from 'react';
+
+import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
+import Head from 'next/head';
+import Header from '../../components/Header';
+import Footer from '../../components/Footer';
+import { MetricCard } from '../../components/DistanceComponents';
+import { FaGlobe, FaAnchor, FaPlane } from 'react-icons/fa';
 
-const SmartMap = dynamic(() => import('@/components/SmartMap'), { ssr: false });
+const LeafletMap = dynamic(() => import('../../components/LeafletMap'), { ssr: false });
 
-const NOMINATIM_HEADERS = { 'User-Agent': 'howfarfromme.com (contact: dev@howfarfromme.com)' };
-const toRad = (d) => d * Math.PI / 180;
-const kmToMiles = (km) => km * 0.621371;
+const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
+const NOMINATIM_HEADERS = {
+  'User-Agent': 'LocateMyCity/1.0 (contact: dev@locatemycity.com)',
+  'Accept-Language': 'en'
+};
+
+// helpers
+const toRad = d => d * Math.PI / 180;
+const kmToMiles = km => km * 0.621371;
+const kmToNmi = km => km * 0.539957;
+const flightHours = km => (km / 800).toFixed(1); // avg jet ~800 km/h
+const haversineKm = (a, b) => {
+  const R = 6371;
+  const dLat = toRad(b.lat - a.lat);
+  const dLon = toRad(b.lng - a.lng);
+  const la1 = toRad(a.lat), la2 = toRad(b.lat);
+  const x = Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
+};
 
 export default function Page({ params }) {
-  // /how-far-is-miami-from-me  -> params.location = "miami"
-  const destinationName = useMemo(
-    () => decodeURIComponent(params.location || '').replace(/-/g, ' ').trim(),
-    [params.location]
-  );
+  const raw = decodeURIComponent(params.location || '');
+  const destinationQuery = raw.replace(/-/g, ' ').trim();
 
-  const [me, setMe] = useState(null);         // { lat, lng }
-  const [dest, setDest] = useState(null);     // { lat, lng }
-  const [km, setKm] = useState(0);
-  const [unit, setUnit] = useState('km');     // 'km' | 'mi'
-  const [status, setStatus] = useState('init'); // init|locating|geocoding|ready|error
-  const [error, setError] = useState('');
+  const [me, setMe] = useState(null);
+  const [dest, setDest] = useState(null);
+  const [km, setKm] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [geoError, setGeoError] = useState('');
 
-  // ---- 1) Geolocate user with graceful fallbacks
+  // 1) Get "me" via browser geolocation (fallback: NYC)
   useEffect(() => {
-    setStatus('locating');
-    setError('');
-
-    // Geolocation requires HTTPS (Vercel ok). If not secure, fallback.
-    const isSecure = typeof window !== 'undefined' && (location.protocol === 'https:' || location.hostname === 'localhost');
-    if (!isSecure || !navigator?.geolocation) {
-      setMe({ lat: 40.7128, lng: -74.0060 }); // NYC fallback
-      return;
-    }
-
-    const watch = navigator.geolocation.getCurrentPosition(
-      ({ coords }) => setMe({ lat: coords.latitude, lng: coords.longitude }),
-      (e) => {
-        setError(e.message || 'Location permission denied. Using default.');
-        setMe({ lat: 40.7128, lng: -74.0060 });
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-
-    return () => {
-      // nothing to cleanup for getCurrentPosition, but keep effect symmetric
+    let resolved = false;
+    const fallback = () => {
+      if (!resolved) {
+        resolved = true;
+        setMe({ lat: 40.7128, lng: -74.0060, name: 'Your Location (fallback NYC)' });
+      }
     };
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        ({ coords }) => {
+          resolved = true;
+          setMe({ lat: coords.latitude, lng: coords.longitude, name: 'Your Location' });
+        },
+        (err) => {
+          setGeoError(err?.message || 'Geolocation denied');
+          fallback();
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      );
+      // hard timeout fallback
+      setTimeout(fallback, 12000);
+    } else {
+      setGeoError('Geolocation not supported');
+      fallback();
+    }
   }, []);
 
-  // ---- 2) Geocode destination (debounced + abortable)
-  const geocodeTimer = useRef(null);
+  // 2) Geocode destination from slug
   useEffect(() => {
-    if (!destinationName) return;
-    setStatus('geocoding');
-    setError('');
-
-    const ctrl = new AbortController();
-    clearTimeout(geocodeTimer.current);
-
-    geocodeTimer.current = setTimeout(async () => {
+    const run = async () => {
       try {
-        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(destinationName)}&format=json&limit=1`;
-        const res = await fetch(url, { headers: NOMINATIM_HEADERS, signal: ctrl.signal });
-        if (!res.ok) throw new Error(`Geocode failed (${res.status})`);
+        const res = await fetch(
+          `${NOMINATIM_URL}?q=${encodeURIComponent(destinationQuery)}&format=json&limit=1&email=dev@locatemycity.com`,
+          { headers: NOMINATIM_HEADERS }
+        );
         const data = await res.json();
-        const p = data?.[0];
-        if (!p) throw new Error('No results for destination.');
-        setDest({ lat: +p.lat, lng: +p.lon });
+        if (!data?.length) {
+          setDest(null);
+          return;
+        }
+        const d = data[0];
+        setDest({ lat: parseFloat(d.lat), lng: parseFloat(d.lon), name: d.display_name });
       } catch (e) {
-        if (ctrl.signal.aborted) return;
-        setError(e.message || 'Failed to geocode destination.');
         setDest(null);
-        setStatus('error');
       }
-    }, 250);
-
-    return () => {
-      clearTimeout(geocodeTimer.current);
-      ctrl.abort();
     };
-  }, [destinationName]);
+    if (destinationQuery) run();
+  }, [destinationQuery]);
 
-  // ---- 3) Compute distance when both points are ready
+  // 3) Compute distance
   useEffect(() => {
     if (!me || !dest) return;
-    const R = 6371;
-    const dLat = toRad(dest.lat - me.lat);
-    const dLon = toRad(dest.lng - me.lng);
-    const a = Math.sin(dLat / 2) ** 2 +
-      Math.cos(toRad(me.lat)) * Math.cos(toRad(dest.lat)) *
-      Math.sin(dLon / 2) ** 2;
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    setKm(R * c);
-    setStatus('ready');
+    setLoading(true);
+    const distance = haversineKm(me, dest);
+    setKm(distance);
+    setLoading(false);
   }, [me, dest]);
 
-  const distanceText = km
-    ? unit === 'km'
-      ? `${km.toFixed(1)} km`
-      : `${kmToMiles(km).toFixed(1)} mi`
-    : '--';
+  if (!destinationQuery) {
+    return (
+      <>
+        <Header />
+        <main className="min-h-screen flex items-center justify-center p-8">
+          <p>Missing destination in URL.</p>
+        </main>
+        <Footer />
+      </>
+    );
+  }
+
+  const title = dest
+    ? `How far is ${raw.replace(/-/g,' ')} from me?`
+    : `How far is ${raw.replace(/-/g,' ')} from me | Calculating...`;
 
   return (
-    <main style={styles.main}>
-      <h1 style={styles.h1}>How far is {titleCase(destinationName)} from me?</h1>
+    <>
+      <Header />
+      <Head>
+        <title>{title}</title>
+        <meta
+          name="description"
+          content={`Calculate the distance from your current location to ${raw.replace(/-/g,' ')} in miles, kilometers, and nautical miles. Estimated flight time included.`}
+        />
+      </Head>
 
-      <section style={styles.card}>
-        <div style={styles.row}><strong>Status:</strong>&nbsp;<span>{status}</span></div>
-        {error ? <div style={{ ...styles.row, color: 'crimson' }}>{error}</div> : null}
-        <div style={styles.row}>
-          <strong>Your coords:</strong>&nbsp;
-          <span>{me ? `${me.lat.toFixed(5)}, ${me.lng.toFixed(5)}` : 'locating…'}</span>
-        </div>
-        <div style={styles.row}>
-          <strong>Destination:</strong>&nbsp;
-          <span>{dest ? `${dest.lat.toFixed(5)}, ${dest.lng.toFixed(5)}` : 'geocoding…'}</span>
-        </div>
-        <div style={{ ...styles.row, fontSize: 22, marginTop: 8 }}>
-          <strong>Distance:</strong>&nbsp;<span>{distanceText}</span>
-        </div>
-        <div style={{ marginTop: 10 }}>
-          <button
-            onClick={() => setUnit('km')}
-            style={{ ...styles.btn, ...(unit === 'km' ? styles.btnActive : {}) }}
-          >Kilometers</button>
-          <button
-            onClick={() => setUnit('mi')}
-            style={{ ...styles.btn, ...(unit === 'mi' ? styles.btnActive : {}) }}
-          >Miles</button>
-        </div>
-      </section>
-
-      <section style={styles.card}>
-        <h3 style={styles.h3}>Map</h3>
-        <div style={{ height: 420 }}>
-          {me && dest ? (
-            <SmartMap sourceCoords={me} destinationCoords={dest} distance={km} />
-          ) : (
-            <div>Loading map…</div>
+      <div className="distance-result__header">
+        <div className="distance-result__header-content">
+          <h1 className="distance-result__title">
+            How far is <span className="distance-result__highlight">{raw.replace(/-/g,' ')}</span> from <span className="distance-result__highlight">me</span>?
+          </h1>
+          {geoError && <p className="text-sm opacity-70">Note: {geoError}. Using fallback location.</p>}
+          {!loading && km != null && dest && me && (
+            <p className="distance-result__description">
+              It’s about <strong>{kmToMiles(km).toFixed(1)} miles</strong> ({km.toFixed(1)} km). Estimated flight time ~ <strong>{flightHours(km)} hours</strong>.
+            </p>
           )}
         </div>
-      </section>
-    </main>
+      </div>
+
+      <main className="distance-result__container">
+        <section className="distance-result__map-section">
+          <div className="distance-result__map-wrapper">
+            {me && dest ? (
+              <LeafletMap
+                source={{ lat: me.lat, lng: me.lng, name: me.name }}
+                destination={{ lat: dest.lat, lng: dest.lng, name: dest.name }}
+                distance={km || 0}
+              />
+            ) : (
+              <div className="p-8 text-center">Loading map…</div>
+            )}
+          </div>
+        </section>
+
+        {!loading && km != null && (
+          <section className="distance-result__metrics">
+            <h2 className="distance-result__section-title">Distance Information</h2>
+            <div className="distance-result__metrics-grid">
+              <MetricCard icon={<FaGlobe />} title="Kilometers" value={km.toFixed(1)} unit="km" variant="blue" />
+              <MetricCard icon={<FaGlobe />} title="Miles" value={kmToMiles(km).toFixed(1)} unit="mi" variant="green" />
+              <MetricCard icon={<FaAnchor />} title="Nautical Miles" value={kmToNmi(km).toFixed(1)} unit="nmi" variant="purple" />
+              <MetricCard icon={<FaPlane />} title="Flight Time" value={flightHours(km)} unit="hours" variant="red" />
+            </div>
+          </section>
+        )}
+      </main>
+
+      <Footer />
+    </>
   );
 }
-
-function titleCase(s) {
-  if (!s) return '';
-  return s.split(' ').map(w => w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : '').join(' ');
-}
-
-const styles = {
-  main: { maxWidth: 900, margin: '40px auto', padding: '0 16px', fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial' },
-  h1: { fontSize: 28, marginBottom: 16 },
-  h3: { marginTop: 0 },
-  card: { background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: 16, marginBottom: 16, boxShadow: '0 1px 2px rgba(0,0,0,.04)' },
-  row: { display: 'flex', alignItems: 'center', margin: '4px 0' },
-  btn: { padding: '6px 10px', marginRight: 8, borderRadius: 8, border: '1px solid #ddd', cursor: 'pointer', background: '#f7f7f7' },
-  btnActive: { borderColor: '#111', background: '#e9e9e9' },
-};
