@@ -1,24 +1,40 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
-import Head from 'next/head';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { FaMapMarkerAlt, FaArrowRight } from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
-import Header from '../../../components/Header';
-import Footer from '../../../components/Footer'
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 
-export default function DistanceCalculator() {
+const UA = { 'User-Agent': 'howfarfromme.com (contact: siteowner@example.com)' };
+
+const slugify = (s) =>
+  s.toLowerCase().trim()
+   .replace(/[^a-z0-9]+/g, '-')
+   .replace(/^-+|-+$/g, '');
+
+const useDebounce = (value, delay = 350) => {
+  const [v, setV] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setV(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return v;
+};
+
+export default function Page({ params }) {
+  const initialDest = decodeURIComponent(params.destination || '').replace(/-/g, ' ');
   const [userLatitude, setUserLatitude] = useState(null);
   const [userLongitude, setUserLongitude] = useState(null);
   const [showLocationPopup, setShowLocationPopup] = useState(false);
   const [currentLocationText, setCurrentLocationText] = useState('Click to detect your location');
-  const [destinationInput, setDestinationInput] = useState('');
+  const [destinationInput, setDestinationInput] = useState(initialDest);
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [isFetching, setIsFetching] = useState(false);
 
   const destinationInputRef = useRef(null);
   const router = useRouter();
 
+  // Auto‑prompt location the first time
   useEffect(() => {
     const permission = localStorage.getItem('locationPermission');
     if (permission === 'always') {
@@ -29,146 +45,125 @@ export default function DistanceCalculator() {
   }, []);
 
   const getLocation = () => {
-    if (navigator.geolocation) {
-      setCurrentLocationText('Detecting your location...');
-      
-      navigator.geolocation.getCurrentPosition(
-        position => {
-          const lat = position.coords.latitude;
-          const lng = position.coords.longitude;
-          setUserLatitude(lat);
-          setUserLongitude(lng);
-          setCurrentLocationText('Location detected!');
-          reverseGeocode(lat, lng);
-        },
-        error => {
-          console.error('Error getting location:', error);
-          setCurrentLocationText('Could not detect location. Using default.');
-          setUserLatitude(40.7128);
-          setUserLongitude(-74.0060);
-        },
-        { enableHighAccuracy: true, timeout: 10000 }
-      );
-    } else {
+    if (!navigator.geolocation) {
       setCurrentLocationText('Geolocation not supported. Using default.');
       setUserLatitude(40.7128);
       setUserLongitude(-74.0060);
+      return;
+    }
+
+    setCurrentLocationText('Detecting your location...');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        setUserLatitude(latitude);
+        setUserLongitude(longitude);
+        setCurrentLocationText('Location detected!');
+        reverseGeocode(latitude, longitude);
+      },
+      (err) => {
+        console.error('Geolocate error:', err);
+        setCurrentLocationText('Could not detect location. Using default.');
+        setUserLatitude(40.7128);
+        setUserLongitude(-74.0060);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  const reverseGeocode = async (lat, lon) => {
+    try {
+      const r = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`,
+        { headers: UA }
+      );
+      const data = await r.json();
+      if (data?.display_name) setCurrentLocationText(data.display_name);
+    } catch (e) {
+      console.error('Reverse geocode error:', e);
     }
   };
 
-  const reverseGeocode = (lat, lng) => {
-    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`;
-    
-    fetch(url)
-      .then(response => response.json())
-      .then(data => {
-        if (data.display_name) {
-          setCurrentLocationText(data.display_name);
-        }
-      })
-      .catch(error => {
-        console.error('Reverse geocoding error:', error);
-      });
-  };
+  // --- Suggestions (debounced) ---
+  const debouncedQuery = useDebounce(destinationInput, 350);
 
-const fetchSuggestions = async (query) => {
-  if (query.length < 2) {
-    setSuggestions([]);
-    return;
-  }
+  useEffect(() => {
+    const q = debouncedQuery.trim();
+    if (q.length < 2) {
+      setSuggestions([]);
+      return;
+    }
 
-  try {
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=10&addressdetails=1`
-    );
-    const data = await response.json();
+    const run = async () => {
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=10&addressdetails=1`;
+        const res = await fetch(url, { headers: UA });
+        const data = await res.json();
 
-    const filtered = data.map(item => {
-      // Use display_name as fallback if no better name is found
-      let name = item.display_name.split(',')[0]; // Take first part of display name
-      
-      // Try to find a better name in address details
-      if (item.address) {
-        name = item.address.city || item.address.town || 
-               item.address.village || item.address.county || 
-               item.address.state || item.address.country || 
-               name;
+        const filtered = data.map((item) => {
+          let name = (item.display_name || '').split(',')[0] || '';
+          if (item.address) {
+            name =
+              item.address.city ||
+              item.address.town ||
+              item.address.village ||
+              item.address.county ||
+              item.address.state ||
+              item.address.country ||
+              name;
+          }
+          return {
+            ...item,
+            short_name: name.length > 40 ? `${name.slice(0, 40)}…` : name,
+          };
+        });
+
+        setSuggestions(filtered);
+      } catch (e) {
+        console.error('Suggestion error:', e);
+        setSuggestions([]);
       }
+    };
 
-      return {
-        ...item,
-        short_name: name.length > 30 ? `${name.substring(0, 30)}...` : name
-      };
-    });
-
-    setSuggestions(filtered);
-  } catch (error) {
-    console.error('Error fetching suggestions:', error);
-    setSuggestions([]);
-  }
-};
-
+    run();
+  }, [debouncedQuery]);
 
   const handleInputChange = (e) => {
-    const value = e.target.value;
-    setDestinationInput(value);
-    fetchSuggestions(value);
+    setDestinationInput(e.target.value);
     setShowSuggestions(true);
   };
-const handleSuggestionClick = (suggestion) => {
-  setDestinationInput(suggestion.short_name);
-  setShowSuggestions(false);
-};
 
-
+  const handleSuggestionClick = (s) => {
+    setDestinationInput(s.short_name);
+    setShowSuggestions(false);
+  };
 
   const handleLocationPermission = (permission) => {
-    if (permission === 'always') {
-      localStorage.setItem('locationPermission', 'always');
-    }
+    if (permission === 'always') localStorage.setItem('locationPermission', 'always');
     setShowLocationPopup(false);
     getLocation();
   };
 
-const handleCalculate = () => {
-  if (!destinationInput.trim()) {
-    alert('Please enter a destination first');
-    return;
-  }
+  const handleCalculate = () => {
+    if (!destinationInput.trim()) return alert('Please enter a destination first');
+    if (userLatitude == null || userLongitude == null) return alert('Please allow location access first');
 
-  if (!userLatitude || !userLongitude) {
-    alert('Please allow location access first');
-    return;
-  }
-
-  // Create URL-friendly destination string
-  const destinationSlug = destinationInput
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-
-  // Navigate to the new URL structure (but keep the same displayed URL)
-  router.push(`/location-from-me/how-far-is-${destinationSlug}-from-me`);
-};
-
+    // Navigate to THIS clean route with a pretty slug
+    const destinationSlug = slugify(destinationInput);
+    router.push(`/how-far-is-${destinationSlug}-from-me`);
+  };
 
   return (
     <>
       <Header />
-      <Head>
-        <title>Distance Calculator | LocateMyCity</title>
-        <link rel="icon" type="image/png" href="/favicon.png" />
-        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet" />
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
-      </Head>
 
       <div className="distance-page">
-        {/* Floating background elements */}
+        {/* Background bubbles (optional) */}
         <div className="floating-elements">
-          <div className="floating-element" style={{ width: '100px', height: '100px', top: '20%', left: '10%', animationDelay: '0s' }}></div>
-          <div className="floating-element" style={{ width: '150px', height: '150px', top: '60%', left: '70%', animationDelay: '2s' }}></div>
-          <div className="floating-element" style={{ width: '80px', height: '80px', top: '30%', left: '80%', animationDelay: '4s' }}></div>
-          <div className="floating-element" style={{ width: '120px', height: '120px', top: '70%', left: '15%', animationDelay: '6s' }}></div>
+          <div className="floating-element" style={{ width: '100px', height: '100px', top: '20%', left: '10%', animationDelay: '0s' }} />
+          <div className="floating-element" style={{ width: '150px', height: '150px', top: '60%', left: '70%', animationDelay: '2s' }} />
+          <div className="floating-element" style={{ width: '80px', height: '80px', top: '30%', left: '80%', animationDelay: '4s' }} />
+          <div className="floating-element" style={{ width: '120px', height: '120px', top: '70%', left: '15%', animationDelay: '6s' }} />
         </div>
 
         {/* Location Permission Popup */}
@@ -185,8 +180,8 @@ const handleCalculate = () => {
         )}
 
         <div className="page-title">
-          <h1>Distance Calculator</h1>
-          <p>Find the exact distance between your current location and any destination worldwide.</p>
+          <h1>How far is {initialDest || 'your destination'} from me?</h1>
+          <p>Calculate miles, kilometers, and nautical miles from your current location.</p>
         </div>
 
         <div className="distance-container">
@@ -201,13 +196,17 @@ const handleCalculate = () => {
 
             <div className="form-group">
               <label htmlFor="source">Source Coordinates</label>
-              <input 
-                type="text" 
-                id="source" 
+              <input
+                type="text"
+                id="source"
                 className="form-control"
                 placeholder="Your current location will appear here"
                 readOnly
-                value={userLatitude && userLongitude ? `${userLatitude.toFixed(6)}, ${userLongitude.toFixed(6)}` : ''}
+                value={
+                  userLatitude != null && userLongitude != null
+                    ? `${userLatitude.toFixed(6)}, ${userLongitude.toFixed(6)}`
+                    : ''
+                }
               />
             </div>
 
@@ -226,7 +225,7 @@ const handleCalculate = () => {
                   onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                 />
                 <button
-                  onClick={() => setShowSuggestions(true)}
+                  onClick={handleCalculate}
                   style={{
                     position: 'absolute',
                     right: '10px',
@@ -238,23 +237,21 @@ const handleCalculate = () => {
                     fontSize: '1rem',
                     padding: '5px',
                     borderRadius: '50%',
-                    transition: 'all 0.3s ease'
+                    transition: 'all 0.3s ease',
                   }}
+                  aria-label="Calculate"
+                  title="Calculate"
                 >
                   <FaArrowRight />
                 </button>
+
                 {showSuggestions && suggestions.length > 0 && (
                   <ul className="suggestions-list">
-                    {suggestions.map((suggestion, index) => (
-  <li
-    key={index}
-    onClick={() => handleSuggestionClick(suggestion)}
-    className="suggestion-item"
-  >
-    {suggestion.short_name}
-  </li>
-))}
-
+                    {suggestions.map((s, i) => (
+                      <li key={i} onMouseDown={() => handleSuggestionClick(s)} className="suggestion-item">
+                        {s.short_name}
+                      </li>
+                    ))}
                   </ul>
                 )}
               </div>
@@ -265,10 +262,10 @@ const handleCalculate = () => {
             </button>
           </div>
         </div>
-       
       </div>
- <Footer />
-      
+
+      <Footer />
     </>
   );
 }
+
