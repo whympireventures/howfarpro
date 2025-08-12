@@ -95,8 +95,8 @@ export function FeatureCard({ icon, title, text, href, cta }) {
   return (
     <div className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
       <div className="text-2xl" aria-hidden>{icon}</div>
-      <h3 className="mt-3 text-base font-semibold text-slate-900">{title}</h3>
-      <p className="mt-1 text-sm text-slate-600">{text}</p>
+      <h3 className="mt-3 text-base font-semibold text-slate-900 tracking-tight">{title}</h3>
+      <p className="mt-1 text-sm leading-relaxed text-slate-600">{text}</p>
       <Link
         href={href}
         className="mt-4 inline-flex items-center justify-center rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2"
@@ -120,35 +120,37 @@ export function FeatureCards({ items = FEATURE_CARDS, title = "Features" }) {
   );
 }
 
-export function PopularSearches({ items = POPULAR_SEARCHES }) {
+export function PopularSearches({ items = POPULAR_SEARCHES, title = "Popular searches" }) {
   return (
     <section className="bg-white">
       <div className="mx-auto max-w-6xl px-4 py-10">
-        <h2 className="text-xl font-semibold">Popular searches</h2>
+        <h2 className="text-xl font-semibold text-slate-900 tracking-tight">{title}</h2>
         <p className="mt-1 text-sm text-slate-600">Quick links to common from‑me and between‑city queries.</p>
-        <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+
+        {/* Chips */}
+        <div className="mt-4 flex flex-wrap gap-2">
           {items.map((item) => (
-            <li key={item.href}>
-              <Link
-                href={item.href}
-                className="group block rounded-xl border border-slate-200 p-4 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400"
-              >
-                <span className="text-sm font-medium group-hover:underline">{item.label}</span>
-              </Link>
-            </li>
+            <Link
+              key={item.href}
+              href={item.href}
+              className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-400"
+            >
+              {item.label}
+            </Link>
           ))}
-        </ul>
-        {/* Explicit chips for target URLs */}
-        <div className="mt-6 flex flex-wrap gap-3">
+        </div>
+
+        {/* Explicit emphasis for target URLs */}
+        <div className="mt-6 flex flex-wrap gap-2">
           <Link
             href="/how-far-is-nassau-from-me"
-            className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-slate-400"
+            className="inline-flex items-center rounded-full bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-slate-400"
           >
             Nassau from me
           </Link>
           <Link
             href="/how-far-is-nassau-from-miami"
-            className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-slate-400"
+            className="inline-flex items-center rounded-full bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-slate-400"
           >
             Nassau from Miami
           </Link>
