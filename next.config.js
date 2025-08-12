@@ -1,29 +1,39 @@
+/** @type {import('next').NextConfig} */
 const nextConfig = {
   async rewrites() {
     return [
-      // Keep your existing API proxy
+      // API proxy (use API_BASE_URL in prod; localhost in dev)
       {
         source: '/api/:path*',
-        destination: 'http://localhost:3001/api/:path*',
+        destination: process.env.API_BASE_URL
+          ? `${process.env.API_BASE_URL}/api/:path*`
+          : 'http://localhost:3001/api/:path*',
       },
-      // Add the new rewrite with proper parameter mapping
+      // Pretty two-location URL → internal route
       {
-        source: '/card1/how-far-is-:destination-from-me',
-        destination: '/card1/how-far-is-:destination-from-me', 
+        source: '/how-far-is-:destination-from-:origin',
+        destination: '/location-from-location/:destination/from/:origin',
       },
-      // Optional: trailing slash version
       {
-        source: '/card1/how-far-is-:destination-from-me/',
-        destination: '/card1/how-far-is-:destination-from-me',
-      }
+        source: '/how-far-is-:destination-from-:origin/',
+        destination: '/location-from-location/:destination/from/:origin',
+      },
     ];
   },
-  experimental: {
-    // Your experimental config
+
+  async redirects() {
+    return [
+      // Internal → Pretty (canonical)
+      {
+        source: '/location-from-location/:destination/from/:origin',
+        destination: '/how-far-is-:destination-from-:origin',
+        permanent: true,
+      },
+    ];
   },
-  images: {
-    domains: ['cdnjs.cloudflare.com', 'unpkg.com'],
-  },
+
+  images: { domains: ['cdnjs.cloudflare.com', 'unpkg.com'] },
 };
 
 module.exports = nextConfig;
+
