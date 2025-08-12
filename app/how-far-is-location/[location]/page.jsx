@@ -12,8 +12,6 @@ import { FaGlobe, FaAnchor, FaPlane } from 'react-icons/fa';
 const LeafletMap = dynamic(() => import('@/components/LeafletMap'), { ssr: false });
 
 
-const LeafletMap = dynamic(() => import('../../components/LeafletMap'), { ssr: false });
-
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
 const NOMINATIM_HEADERS = {
   'User-Agent': 'LocateMyCity/1.0 (contact: dev@locatemycity.com)',
