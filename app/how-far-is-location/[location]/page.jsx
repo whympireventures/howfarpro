@@ -3,10 +3,14 @@
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Head from 'next/head';
-import Header from '../../components/Header';
-import Footer from '../../components/Footer';
-import { MetricCard } from '../../components/DistanceComponents';
+
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
+import { MetricCard } from '@/components/DistanceComponents';
 import { FaGlobe, FaAnchor, FaPlane } from 'react-icons/fa';
+
+const LeafletMap = dynamic(() => import('@/components/LeafletMap'), { ssr: false });
+
 
 const LeafletMap = dynamic(() => import('../../components/LeafletMap'), { ssr: false });
 
