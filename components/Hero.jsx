@@ -36,7 +36,7 @@ export default function HeroSection() {
         `${NOMINATIM_URL}?q=${encodeURIComponent(query)}&format=json&limit=5&addressdetails=1`,
         {
           headers: {
-            'User-Agent': 'LocateMyCity/1.0 (your@email.com)'
+            'User-Agent': 'LocateMyCity/1.0 (howfarfromme@gmail.com)'
           }
         }
       );
@@ -103,7 +103,7 @@ export default function HeroSection() {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
 
-      router.push(`/location-from-me/how-far-is-${destinationSlug}-from-me`);
+      router.push(`how-far-is-${destinationSlug}-from-me`);
   };
 
   return (
@@ -126,11 +126,9 @@ export default function HeroSection() {
 
           <div className="hero-content">
             <div className="feature-section">
-              <h1>Explore Locations Around the World. Instantly.</h1>
+              <h1>Find Out How Far Places Are From Each Other</h1>
               <p className="feature-text">
-                From abandoned ghost towns and remote tropical islands to booming cities on every continent, 
-                LocateMyCity helps you uncover key facts about any place — how far it is, whether it's a city 
-                or town, or if it's no longer inhabited. Search by name or explore by keyword. Fast. Precise. Reliable.
+               Use our global distance calculator to get results in kilometers, miles, flight time, weather, and more.
               </p>
             </div>
           </div>
