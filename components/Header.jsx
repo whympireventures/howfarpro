@@ -8,8 +8,8 @@ export default function Header() {
   return (
     <>
       <Head>
-        <title>LocateMyCity</title>
-        <meta name="description" content="LocateMyCity helps you instantly explore locations worldwide - from ghost towns to booming cities. Find distances, compare locations, discover rock formations & springs. Fast, precise geographic information at your fingertips." />
+        <title>How Far From Me</title>
+        <meta name="description" content="How Far From Me helps you instantly determine how far you are from any location worldwide." />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet" />
@@ -32,7 +32,7 @@ export default function Header() {
                 className="logo-image"
                 priority
               />
-              LocateMyCity
+              How Far From Me
             </div>
             <nav>
               <Link href="/" title="Home">HOME</Link>
