@@ -5,13 +5,19 @@ import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Head from 'next/head';
 
-// If you don't have the "@/*" alias, change these to "../../../components/..."
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
-import { MetricCard } from '@/components/DistanceComponents';
-import { FaGlobe, FaAnchor, FaPlane } from 'react-icons/fa';
+import Header from '@/components/Header';                // Header.jsx
+import Footer from '@/components/Footer';                // Footer.js
+import { MetricCard } from '@/components/DistanceComponents'; // DistanceComponents.jsx
+import Hero from '@/components/Hero';                    // Hero.jsx
+import Cards from '@/components/Cards';                  // Cards.jsx
+// If you also want the search widget here, uncomment the next line:
+// import DistanceCalculator from '@/components/distanceCalculator'; // distanceCalculator.jsx
 
-const LeafletMap = dynamic(() => import('@/components/LeafletMap'), { ssr: false });
+// Use the same map component as your other page
+const Map = dynamic(() => import('@/components/Map-comp'), {
+  ssr: false,
+  loading: () => <div className="map-loading">Loading map...</div>,
+});
 
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
 const NOMINATIM_HEADERS = {
@@ -34,7 +40,7 @@ const haversineKm = (a, b) => {
 };
 
 export default function Page({ params }) {
-  // NOTE: param name is "location" in this folder
+  // param name is "location" in this folder
   const raw = decodeURIComponent(params.location || '');
   const destinationQuery = raw.replace(/-/g, ' ').trim();
 
@@ -99,18 +105,6 @@ export default function Page({ params }) {
     setLoading(false);
   }, [me, dest]);
 
-  if (!destinationQuery) {
-    return (
-      <>
-        <Header />
-        <main className="min-h-screen flex items-center justify-center p-8">
-          <p>Missing destination in URL.</p>
-        </main>
-        <Footer />
-      </>
-    );
-  }
-
   const prettyName = raw.replace(/-/g, ' ');
   const title = dest ? `How far is ${prettyName} from me?`
                      : `How far is ${prettyName} from me | Calculating...`;
@@ -125,6 +119,9 @@ export default function Page({ params }) {
           content={`Calculate the distance from your current location to ${prettyName} in miles, kilometers, and nautical miles. Estimated flight time included.`}
         />
       </Head>
+
+      {/* Optional hero block from your components */}
+      <Hero />
 
       <div className="distance-result__header">
         <div className="distance-result__header-content">
@@ -141,12 +138,13 @@ export default function Page({ params }) {
       </div>
 
       <main className="distance-result__container">
+        {/* Map using your Map-comp */}
         <section className="distance-result__map-section">
           <div className="distance-result__map-wrapper">
             {me && dest ? (
-              <LeafletMap
-                source={{ lat: me.lat, lng: me.lng, name: me.name }}
-                destination={{ lat: dest.lat, lng: dest.lng, name: dest.name }}
+              <Map
+                sourceCoords={{ lat: me.lat, lng: me.lng }}
+                destinationCoords={{ lat: dest.lat, lng: dest.lng }}
                 distance={km || 0}
               />
             ) : (
@@ -155,17 +153,33 @@ export default function Page({ params }) {
           </div>
         </section>
 
+        {/* Metric cards */}
         {!loading && km != null && (
           <section className="distance-result__metrics">
             <h2 className="distance-result__section-title">Distance Information</h2>
             <div className="distance-result__metrics-grid">
-              <MetricCard icon={<FaGlobe />}  title="Kilometers"     value={km.toFixed(1)}            unit="km"  variant="blue" />
-              <MetricCard icon={<FaGlobe />}  title="Miles"          value={kmToMiles(km).toFixed(1)} unit="mi"  variant="green" />
-              <MetricCard icon={<FaAnchor />} title="Nautical Miles" value={kmToNmi(km).toFixed(1)}   unit="nmi" variant="purple" />
+              <MetricCard icon={<FaGlobe />}  title="Kilometers"     value={km.toFixed(1)}            unit="km"   variant="blue" />
+              <MetricCard icon={<FaGlobe />}  title="Miles"          value={kmToMiles(km).toFixed(1)} unit="mi"   variant="green" />
+              <MetricCard icon={<FaAnchor />} title="Nautical Miles" value={kmToNmi(km).toFixed(1)}   unit="nmi"  variant="purple" />
               <MetricCard icon={<FaPlane />}  title="Flight Time"    value={flightHours(km)}          unit="hours" variant="red" />
             </div>
           </section>
         )}
+
+        {/* Your extra Cards component (pass what it might need) */}
+        <section className="distance-result__extras">
+          <Cards
+            destinationName={prettyName}
+            distanceKm={km || 0}
+            miles={(km ? kmToMiles(km) : 0).toFixed?.(1)}
+            sourceName={me?.name || 'Your Location'}
+          />
+        </section>
+
+        {/* If you want the search widget here too, uncomment: */}
+        {/* <section className="distance-result__search">
+          <DistanceCalculator />
+        </section> */}
       </main>
 
       <Footer />
