@@ -45,13 +45,11 @@ export default function Features() {
               <span role="img" aria-label="location">📍</span>
             </div>
             <h3>Popular Locations</h3>
-            <p>
-              Calculate precise distances from your current location to any destination. Get accurate
-              measurements in miles or kilometers with real-time updates.
-            </p>
+            <h3>
+               Check out top search locations 
+            </h3>
             <p className="mt-2 leading-relaxed [text-wrap:pretty]">
-  Check out top search locations like{" "}
-  <Link href="/how-far-is-nassau-bahamas-from-me" className="hover:underline">
+   <Link href="/how-far-is-nassau-bahamas-from-me" className="hover:underline">
     <span className="whitespace-nowrap">Nassau, Bahamas</span>
   </Link>,{" "}
   <Link href="/how-far-is-paris-france-from-me" className="hover:underline">
