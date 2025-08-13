@@ -1,4 +1,3 @@
-// app/location-from-location/[destination]/from/[origin]/page.jsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -7,7 +6,7 @@ import Head from 'next/head';
 
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { MetricCard } from '@/components/DistanceComponents';
+import { MetricCard, WeatherPanel } from '@/components/DistanceComponents';
 import { FaGlobe, FaAnchor, FaPlane } from 'react-icons/fa';
 
 const LeafletMap = dynamic(() => import('@/components/LeafletMap'), { ssr: false });
@@ -32,13 +31,77 @@ const haversineKm = (a, b) => {
   return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
 };
 
+// Very small country → currency/language map (extend as needed)
+const COUNTRY_META = {
+  bs: { currency: 'BSD', language: 'English' },
+  us: { currency: 'USD', language: 'English' },
+  ca: { currency: 'CAD', language: 'English/French' },
+  gb: { currency: 'GBP', language: 'English' },
+  fr: { currency: 'EUR', language: 'French' },
+  jp: { currency: 'JPY', language: 'Japanese' },
+  au: { currency: 'AUD', language: 'English' },
+  ae: { currency: 'AED', language: 'Arabic' },
+  de: { currency: 'EUR', language: 'German' },
+  es: { currency: 'EUR', language: 'Spanish' },
+  it: { currency: 'EUR', language: 'Italian' },
+};
+
+function getCountryMeta(code) {
+  if (!code) return { currency: '—', language: '—' };
+  const meta = COUNTRY_META[code.toLowerCase()];
+  return meta ?? { currency: '—', language: '—' };
+}
+
 async function geocode(q) {
-  const url = `${NOMINATIM_URL}?q=${encodeURIComponent(q)}&format=json&limit=1&email=dev@locatemycity.com`;
+  const url = `${NOMINATIM_URL}?q=${encodeURIComponent(q)}&format=json&limit=1&addressdetails=1&email=dev@locatemycity.com`;
   const res = await fetch(url, { headers: NOMINATIM_HEADERS });
   const data = await res.json();
   if (!Array.isArray(data) || !data.length) return null;
   const d = data[0];
-  return { lat: parseFloat(d.lat), lng: parseFloat(d.lon), name: d.display_name };
+  const label =
+    d.display_name?.split(',').slice(0, 2).join(', ').trim() ||
+    d.display_name ||
+    q;
+  return {
+    lat: parseFloat(d.lat),
+    lng: parseFloat(d.lon),
+    name: label,
+    countryCode: d.address?.country_code ?? null,
+  };
+}
+
+// weather fetcher (Open-Meteo, no key)
+async function fetchWeather(lat, lng) {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,wind_speed_10m&daily=sunrise,sunset&timezone=auto`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('weather failed');
+  const json = await res.json();
+
+  const temp = json?.current?.temperature_2m;
+  const wind = json?.current?.wind_speed_10m;
+  const tz = json?.timezone ?? 'UTC';
+  const sunrise = json?.daily?.sunrise?.[0] ?? '';
+  const sunset  = json?.daily?.sunset?.[0] ?? '';
+
+  const fmtTime = (iso) => {
+    if (!iso) return '—';
+    try {
+      return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: tz });
+    } catch {
+      return iso;
+    }
+  };
+
+  const localtime = new Date().toLocaleString([], { timeZone: tz });
+
+  return {
+    temp: (temp != null ? `${temp}°C` : '—'),
+    wind: (wind != null ? `${wind} km/h` : '—'),
+    sunrise: fmtTime(sunrise),
+    sunset: fmtTime(sunset),
+    timezone: tz,
+    localtime,
+  };
 }
 
 export default function Page({ params }) {
@@ -54,7 +117,10 @@ export default function Page({ params }) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
 
-  // Geocode both locations, then compute distance
+  // weather/general info
+  const [originWX, setOriginWX] = useState(null);
+  const [destWX, setDestWX] = useState(null);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -63,30 +129,35 @@ export default function Page({ params }) {
       setErr('');
 
       try {
-        const [gO, gD] = await Promise.all([
-          geocode(originQuery),
-          geocode(destinationQuery),
-        ]);
-
+        const [gO, gD] = await Promise.all([geocode(originQuery), geocode(destinationQuery)]);
         if (cancelled) return;
 
         if (!gO || !gD) {
-          setErr(
-            (!gO && !gD) ? 'Could not geocode either location.' :
-            (!gO) ? `Could not geocode "${originQuery}".` :
-                    `Could not geocode "${destinationQuery}".`
-          );
+          setErr((!gO && !gD)
+            ? 'Could not geocode either location.'
+            : (!gO)
+              ? `Could not geocode "${originQuery}".`
+              : `Could not geocode "${destinationQuery}".`);
           setOrigin(null); setDest(null); setKm(null); setLoading(false);
           return;
         }
 
         setOrigin(gO);
         setDest(gD);
-        setKm(haversineKm(gO, gD));
+        const kmVal = haversineKm(gO, gD);
+        setKm(kmVal);
+
+        // Load weather in parallel
+        const [wxO, wxD] = await Promise.all([fetchWeather(gO.lat, gO.lng), fetchWeather(gD.lat, gD.lng)]);
+        if (!cancelled) {
+          setOriginWX(wxO);
+          setDestWX(wxD);
+        }
+
         setLoading(false);
       } catch {
         if (!cancelled) {
-          setErr('Geocoding failed. Please try again.');
+          setErr('Geocoding or weather failed. Please try again.');
           setLoading(false);
         }
       }
@@ -111,6 +182,35 @@ export default function Page({ params }) {
       </>
     );
   }
+
+  // Build WeatherPanel props once origin/dest + weather are ready
+  const originGeneral = origin && originWX ? {
+    location: origin.name,
+    weather: {
+      temp: originWX.temp,
+      wind: originWX.wind,
+      sunrise: originWX.sunrise,
+      sunset: originWX.sunset,
+      coordinates: `${origin.lat.toFixed(4)}, ${origin.lng.toFixed(4)}`,
+      currency: getCountryMeta(origin.countryCode).currency,
+      language: getCountryMeta(origin.countryCode).language,
+      localtime: originWX.localtime,
+    },
+  } : null;
+
+  const destGeneral = dest && destWX ? {
+    location: dest.name,
+    weather: {
+      temp: destWX.temp,
+      wind: destWX.wind,
+      sunrise: destWX.sunrise,
+      sunset: destWX.sunset,
+      coordinates: `${dest.lat.toFixed(4)}, ${dest.lng.toFixed(4)}`,
+      currency: getCountryMeta(dest.countryCode).currency,
+      language: getCountryMeta(dest.countryCode).language,
+      localtime: destWX.localtime,
+    },
+  } : null;
 
   return (
     <>
@@ -160,10 +260,30 @@ export default function Page({ params }) {
           <section className="distance-result__metrics">
             <h2 className="distance-result__section-title">Distance Information</h2>
             <div className="distance-result__metrics-grid">
-              <MetricCard icon={<FaGlobe />}  title="Kilometers"     value={km.toFixed(1)}            unit="km"   variant="blue" />
-              <MetricCard icon={<FaGlobe />}  title="Miles"          value={kmToMiles(km).toFixed(1)} unit="mi"   variant="green" />
-              <MetricCard icon={<FaAnchor />} title="Nautical Miles" value={kmToNmi(km).toFixed(1)}   unit="nmi"  variant="purple" />
+              <MetricCard icon={<FaGlobe />}  title="Kilometers"     value={km.toFixed(1)}            unit="km"    variant="blue" />
+              <MetricCard icon={<FaGlobe />}  title="Miles"          value={kmToMiles(km).toFixed(1)} unit="mi"    variant="green" />
+              <MetricCard icon={<FaAnchor />} title="Nautical Miles" value={kmToNmi(km).toFixed(1)}   unit="nmi"   variant="purple" />
               <MetricCard icon={<FaPlane />}  title="Flight Time"    value={flightHours(km)}          unit="hours" variant="red" />
+            </div>
+          </section>
+        )}
+
+        {/* NEW: Weather & General Info for both locations */}
+        {(originGeneral || destGeneral) && (
+          <section className="distance-result__weather-section">
+            <h2 className="distance-result__section-title">Weather & General Info</h2>
+            <div className="distance-result__weather-grid">
+              {originGeneral ? (
+                <WeatherPanel type="origin" location={originGeneral.location} weather={originGeneral.weather} />
+              ) : (
+                <div className="distance-result__weather-panel">Loading origin info…</div>
+              )}
+
+              {destGeneral ? (
+                <WeatherPanel type="destination" location={destGeneral.location} weather={destGeneral.weather} />
+              ) : (
+                <div className="distance-result__weather-panel">Loading destination info…</div>
+              )}
             </div>
           </section>
         )}
