@@ -49,26 +49,27 @@ export default function Features() {
               Calculate precise distances from your current location to any destination. Get accurate
               measurements in miles or kilometers with real-time updates.
             </p>
-
-            <ul className="mt-2 flex flex-wrap gap-2">
-              {[
-                { href: "/how-far-is-nassau-bahamas-from-me", label: "Nassau, Bahamas" },
-                { href: "/how-far-is-paris-france-from-me", label: "Paris, France" },
-                { href: "/how-far-is-london-england-from-me", label: "London, England" },
-                { href: "/how-far-is-tokyo-japan-from-me", label: "Tokyo, Japan" },
-                { href: "/how-far-is-sydney-australia-from-me", label: "Sydney, Australia" },
-                { href: "/how-far-is-dubai-uae-from-me", label: "Dubai, UAE" },
-              ].map((x) => (
-                <li key={x.href}>
-                  <Link
-                    href={x.href}
-                    className="inline-block rounded-full border px-3 py-1 text-sm hover:underline whitespace-nowrap"
-                  >
-                    {x.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <p className="mt-2 leading-relaxed [text-wrap:pretty]">
+  Check out top search locations like{" "}
+  <Link href="/how-far-is-nassau-bahamas-from-me" className="hover:underline">
+    <span className="whitespace-nowrap">Nassau, Bahamas</span>
+  </Link>,{" "}
+  <Link href="/how-far-is-paris-france-from-me" className="hover:underline">
+    <span className="whitespace-nowrap">Paris, France</span>
+  </Link>,{" "}
+  <Link href="/how-far-is-london-england-from-me" className="hover:underline">
+    <span className="whitespace-nowrap">London, England</span>
+  </Link>,{" "}
+  <Link href="/how-far-is-tokyo-japan-from-me" className="hover:underline">
+    <span className="whitespace-nowrap">Tokyo, Japan</span>
+  </Link>,{" "}
+  <Link href="/how-far-is-sydney-australia-from-me" className="hover:underline">
+    <span className="whitespace-nowrap">Sydney, Australia</span>
+  </Link>,{" "}
+  <Link href="/how-far-is-dubai-uae-from-me" className="hover:underline">
+    <span className="whitespace-nowrap">Dubai, UAE</span>
+  </Link>.
+</p>
           </div>
 
           {/* Location to Location */}
