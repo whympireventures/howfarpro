@@ -137,22 +137,24 @@ function FeatureCard({ emoji, label, title, blurb, links, cta, color = "blue" })
       cta: "bg-teal-600 hover:bg-teal-700 text-white dark:bg-teal-700 dark:hover:bg-teal-600",
       icon: "bg-teal-100 text-teal-600 dark:bg-teal-900/40 dark:text-teal-400",
     },
-  } as const;
+  };
+
+  const theme = colorClasses[color] || colorClasses.blue;
 
   return (
     <motion.div
       variants={item}
-      className={`group relative flex flex-col overflow-hidden rounded-2xl border ${colorClasses[color].border} bg-gradient-to-br ${colorClasses[color].bg} p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md dark:shadow-none`}
+      className={`group relative flex flex-col overflow-hidden rounded-2xl border ${theme.border} bg-gradient-to-br ${theme.bg} p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md dark:shadow-none`}
     >
       {/* Icon badge */}
-      <div className={`mb-5 inline-flex h-12 w-12 items-center justify-center rounded-xl ${colorClasses[color].icon} text-2xl shadow-inner`}>
+      <div className={`mb-5 inline-flex h-12 w-12 items-center justify-center rounded-xl ${theme.icon} text-2xl shadow-inner`}>
         <span role="img" aria-label={label} className="select-none">
           {emoji}
         </span>
       </div>
 
       {/* Heading */}
-      <h3 className={`text-xl font-bold tracking-tight ${colorClasses[color].text}`}>{title}</h3>
+      <h3 className={`text-xl font-bold tracking-tight ${theme.text}`}>{title}</h3>
       <p className="mt-2 text-neutral-600 dark:text-neutral-300">{blurb}</p>
 
       {/* Links */}
@@ -174,7 +176,7 @@ function FeatureCard({ emoji, label, title, blurb, links, cta, color = "blue" })
       <div className="mt-6 border-t border-neutral-200/50 pt-4 dark:border-neutral-800/50">
         <Link
           href={cta.href}
-          className={`inline-flex w-full items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium shadow-sm transition hover:shadow-md ${colorClasses[color].cta}`}
+          className={`inline-flex w-full items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium shadow-sm transition hover:shadow-md ${theme.cta}`}
           aria-label={cta.text}
         >
           {cta.text}
