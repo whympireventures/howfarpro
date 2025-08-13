@@ -87,23 +87,7 @@ export default function Features() {
             </p>
             <Link href="/rock">
               <button className="card-btn">Explore Rocks</button>
-            </Link>
-          </div>
-
-          {/* Spring Cities */}
-          <div className="feature-card">
-            <div className="card-icon">
-              <span role="img" aria-label="spring">💧</span>
-            </div>
-            <h3>Spring Cities</h3>
-            <p>
-              Explore cities with “Spring” in their name—perfect for discovering places that sound refreshing,
-              whether or not water is involved.
-            </p>
-            <Link href="/spring">
-              <button className="card-btn">Discover Springs</button>
-            </Link>
-          </div>
+             </div>
         </div>
       </section>
     </>
