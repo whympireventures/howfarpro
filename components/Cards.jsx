@@ -50,15 +50,25 @@ export default function Features() {
               measurements in miles or kilometers with real-time updates.
             </p>
 
-            <p>
-              Check out top search locations like{" "}
-              <Link href="/how-far-is-nassau-bahamas-from-me">Nassau, Bahamas</Link>,{" "}
-              <Link href="/how-far-is-paris-france-from-me">Paris, France</Link>,{" "}
-              <Link href="/how-far-is-london-england-from-me">London, England</Link>,{" "}
-              <Link href="/how-far-is-tokyo-japan-from-me">Tokyo, Japan</Link>,{" "}
-              <Link href="/how-far-is-sydney-australia-from-me">Sydney, Australia</Link>,{" "}
-              <Link href="/how-far-is-dubai-uae-from-me">Dubai, UAE</Link>.
-            </p>
+            <ul className="mt-2 flex flex-wrap gap-2">
+              {[
+                { href: "/how-far-is-nassau-bahamas-from-me", label: "Nassau, Bahamas" },
+                { href: "/how-far-is-paris-france-from-me", label: "Paris, France" },
+                { href: "/how-far-is-london-england-from-me", label: "London, England" },
+                { href: "/how-far-is-tokyo-japan-from-me", label: "Tokyo, Japan" },
+                { href: "/how-far-is-sydney-australia-from-me", label: "Sydney, Australia" },
+                { href: "/how-far-is-dubai-uae-from-me", label: "Dubai, UAE" },
+              ].map((x) => (
+                <li key={x.href}>
+                  <Link
+                    href={x.href}
+                    className="inline-block rounded-full border px-3 py-1 text-sm hover:underline whitespace-nowrap"
+                  >
+                    {x.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </div>
 
           {/* Location to Location */}
@@ -87,9 +97,11 @@ export default function Features() {
             </p>
             <Link href="/rock">
               <button className="card-btn">Explore Rocks</button>
-             </div>
+            </Link>
+          </div>
         </div>
       </section>
     </>
   );
 }
+
