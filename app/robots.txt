@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://locatemycity.com/sitemap.xml
+Sitemap: https://locatemycity.com/location-from-location/how-far-is-greenland-from-canada
+Sitemap: https://locatemycity.com/location-from-location/how-far-is-cyprus-from-iran
+Sitemap: https://locatemycity.com/location-from-location/how-far-is-alberta-from-united-states
