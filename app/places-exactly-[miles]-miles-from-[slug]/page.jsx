@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 
-// Your site components
+// Site chrome
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 
@@ -31,8 +31,8 @@ const haversineKm = (lat1, lon1, lat2, lon2) => {
   return R * c;
 };
 
-const titleCase = (s) =>
-  (s || '')
+const titleCase = (s = '') =>
+  s
     .replace(/-/g, ' ')
     .split(' ')
     .map((w) => (w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : ''))
@@ -41,46 +41,64 @@ const titleCase = (s) =>
 
 const slugToDisplay = (slug) => titleCase(decodeURIComponent(slug || ''));
 
+const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
+const safeNumber = (v, d) => (Number.isFinite(Number(v)) ? Number(v) : d);
+
+// ---------- constants ----------
+/**
+ * Where to fetch the cities15000 JSON:
+ * - Prefer Railway (set NEXT_PUBLIC_CITIES_URL in env)
+ * - Fallback to a local copy under /public/data/cities15000.min.json
+ */
+const DATA_URL =
+  process.env.NEXT_PUBLIC_CITIES_URL ||
+  '/data/cities15000.min.json';
+
 // ---------- page ----------
 export default function PlacesExactlyMilesFrom() {
   const { miles, slug } = useParams(); // params from the folder
   const search = useSearchParams();
 
-  // Optional ?tolerance=5 (miles). Defaults below.
-  const toleranceMi = Number(search.get('tolerance')) || 5;
+  // Optional ?tolerance=5 (miles)
+  const toleranceMi = clamp(safeNumber(search.get('tolerance'), 5), 0, 50);
 
-  const [origin, setOrigin] = useState(null); // {name, lat, lon}
-  const [dataset, setDataset] = useState([]); // cities15000
+  const [origin, setOrigin] = useState(null);      // {name, lat, lon}
+  const [dataset, setDataset] = useState([]);      // cities15000
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const desiredMiles = useMemo(() => Number(miles) || 0, [miles]);
+  const desiredMiles = useMemo(() => safeNumber(miles, 0), [miles]);
   const originDisplay = useMemo(() => slugToDisplay(slug), [slug]);
 
-  // ---- 1) Geocode the origin (with a very light OSM/Nominatim hit)
-  const geocodeOrigin = useCallback(async (name) => {
-    // If you already have a backend geocoder or cache, point to that instead.
-    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
-      name
-    )}&format=json&limit=1`;
-    const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
-    const data = await res.json();
-    if (Array.isArray(data) && data.length) {
-      const { lat, lon, display_name } = data[0];
-      return {
-        name: display_name?.split(',')[0] || originDisplay,
-        lat: parseFloat(lat),
-        lon: parseFloat(lon),
-      };
-    }
-    return null;
-  }, [originDisplay]);
+  // ---- 1) Geocode the origin (Nominatim)
+  const geocodeOrigin = useCallback(
+    async (name) => {
+      if (!name) return null;
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
+        name
+      )}&format=json&limit=1`;
+      const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (Array.isArray(data) && data.length) {
+        const { lat, lon, display_name } = data[0];
+        return {
+          name: display_name?.split(',')[0] || originDisplay,
+          lat: parseFloat(lat),
+          lon: parseFloat(lon),
+        };
+      }
+      return null;
+    },
+    [originDisplay]
+  );
 
-  // ---- 2) Load the dataset (client fetch from /public)
+  // ---- 2) Load the dataset
   const loadDataset = useCallback(async () => {
-    const res = await fetch('/data/cities15000.min.json', { cache: 'force-cache' });
+    const res = await fetch(DATA_URL, { cache: 'force-cache' });
     if (!res.ok) throw new Error('Failed to load cities15000 dataset');
-    return res.json();
+    const json = await res.json();
+    return Array.isArray(json) ? json : [];
   }, []);
 
   // ---- 3) bootstrap
@@ -97,9 +115,9 @@ export default function PlacesExactlyMilesFrom() {
         if (cancelled) return;
 
         setOrigin(orig);
-        setDataset(Array.isArray(data) ? data : []);
+        setDataset(data);
 
-        if (!orig) {
+        if (!orig || !data.length) {
           setResults([]);
           return;
         }
@@ -138,16 +156,20 @@ export default function PlacesExactlyMilesFrom() {
     [origin]
   );
 
-  // Show circle (approx) by giving destination coords or let Map draw a ring if supported
-  const markers = useMemo(() => {
-    return results.map((r) => ({
-      lat: r.lat,
-      lng: r.lon,
-      label: `${r.name}, ${r.admin1 || r.admin2 || r.country}`,
-      miles: Math.round(r.mi),
-    }));
-  }, [results]);
+  const markers = useMemo(
+    () =>
+      results.map((r) => ({
+        lat: r.lat,
+        lng: r.lon,
+        label: `${r.name}${r.admin1 ? `, ${r.admin1}` : ''}${
+          r.country ? `, ${r.country}` : ''
+        }`,
+        miles: Math.round(r.mi),
+      })),
+    [results]
+  );
 
+  // ---- ui ----
   return (
     <>
       <Header />
@@ -160,32 +182,23 @@ export default function PlacesExactlyMilesFrom() {
           </h1>
           <p className="description">
             Explore towns and cities from the GeoNames <em>cities15000</em> dataset that are approximately
-            <strong> {desiredMiles} miles</strong> from <strong>{originDisplay}</strong>. Use these for road-trip ideas,
-            radius searches, and more.
+            <strong> {desiredMiles} miles</strong> from <strong>{originDisplay}</strong>. Great for radius searches,
+            road-trip ideas, and more.
           </p>
         </header>
 
         {/* Controls */}
         <section aria-label="filters" style={{ margin: '1rem 0' }}>
           <div className="controls" style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <Link
-              href={`/places-exactly-${desiredMiles}-miles-from-${slug}?tolerance=2`}
-              className={`chip ${toleranceMi === 2 ? 'active' : ''}`}
-            >
-              ±2 mi
-            </Link>
-            <Link
-              href={`/places-exactly-${desiredMiles}-miles-from-${slug}?tolerance=5`}
-              className={`chip ${toleranceMi === 5 ? 'active' : ''}`}
-            >
-              ±5 mi
-            </Link>
-            <Link
-              href={`/places-exactly-${desiredMiles}-miles-from-${slug}?tolerance=10`}
-              className={`chip ${toleranceMi === 10 ? 'active' : ''}`}
-            >
-              ±10 mi
-            </Link>
+            {[2, 5, 10].map((tol) => (
+              <Link
+                key={tol}
+                href={`/places-exactly-${desiredMiles}-miles-from-${slug}?tolerance=${tol}`}
+                className={`chip ${toleranceMi === tol ? 'active' : ''}`}
+              >
+                ±{tol} mi
+              </Link>
+            ))}
           </div>
         </section>
 
@@ -196,7 +209,7 @@ export default function PlacesExactlyMilesFrom() {
               sourceCoords={originCoords}
               destinationCoords={null}
               points={markers}           // if your Map-comp supports a points array
-              ringMiles={desiredMiles}   // optional: let the map draw a distance ring
+              ringMiles={desiredMiles}   // let the map draw a distance ring (optional support)
             />
           </div>
         </section>
@@ -220,7 +233,7 @@ export default function PlacesExactlyMilesFrom() {
                     <div className="result-main">
                       <strong>{r.name}</strong>
                       <span className="muted">
-                        {r.admin1 ? `, ${r.admin1}` : ''} {r.country ? ` (${r.country})` : ''}
+                        {r.admin1 ? `, ${r.admin1}` : ''}{r.country ? ` (${r.country})` : ''}
                       </span>
                     </div>
                     <div className="result-meta">
@@ -240,7 +253,7 @@ export default function PlacesExactlyMilesFrom() {
           )}
         </section>
 
-        {/* FAQ (SEO) */}
+        {/* FAQ (matches schema in head.jsx) */}
         <section style={{ marginTop: '2rem' }}>
           <h2>FAQ</h2>
           <details>
@@ -253,7 +266,7 @@ export default function PlacesExactlyMilesFrom() {
           <details>
             <summary>Where does the city data come from?</summary>
             <p>
-              From the GeoNames <code>cities15000</code> dataset (pop. &gt;= 15k). Coordinates are WGS-84 (lat/lon).
+              From the GeoNames <code>cities15000</code> dataset (population ≥ 15,000). Coordinates are WGS-84 (lat/lon).
             </p>
           </details>
           <details>
