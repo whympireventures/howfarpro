@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import Head from 'next/head';
-import { usePathname } from 'next/navigation';
+import { usePathname, useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 
 // ✅ use alias imports
