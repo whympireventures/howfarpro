@@ -36,7 +36,7 @@ export default function HeroSection() {
         `${NOMINATIM_URL}?q=${encodeURIComponent(query)}&format=json&limit=5&addressdetails=1`,
         {
           headers: {
-            'User-Agent': 'LocateMyCity/1.0 (your@email.com)'
+            'User-Agent': 'HowFarFromMe/1.0 (jaredwhyms@gmail.com)'
           }
         }
       );
@@ -103,7 +103,7 @@ export default function HeroSection() {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
 
-      router.push(`/location-from-me/how-far-is-${destinationSlug}-from-me`);
+      router.push(`/how-far-is-${destinationSlug}-from-me`);
   };
 
   return (
@@ -111,8 +111,8 @@ export default function HeroSection() {
      <Head>
   <meta charSet="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>LocateMyCity</title>
-  <meta name="description" content="LocateMyCity helps you instantly explore locations worldwide – from ghost towns to booming cities. Find distances, compare places, and discover natural features in seconds." />
+  <title>How Far From Me</title>
+  <meta name="description" content="Find Out How Far Places Are From Each Other" />
   <meta name="robots" content="index, follow" />
   
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -134,9 +134,7 @@ export default function HeroSection() {
             <div className="feature-section">
               <h1>Explore Locations Around the World. Instantly.</h1>
               <p className="feature-text">
-                From abandoned ghost towns and remote tropical islands to booming cities on every continent, 
-                LocateMyCity helps you uncover key facts about any place — how far it is, whether it's a city 
-                or town, or if it's no longer inhabited. Search by name or explore by keyword. Fast. Precise. Reliable.
+            Find Out How Far Places Are From Each Other
               </p>
             </div>
           </div>
