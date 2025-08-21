@@ -7,7 +7,7 @@ import Image from 'next/image';
 import Footer from '../../components/Footer';
 import Header from '../../components/Header';
 
-// Dynamically import Leaflet with loading state
+// Dynamically import Leaflet map (no SSR)
 const MapWithNoSSR = dynamic(() => import('../../components/MapComponent'), {
   ssr: false,
   loading: () => (
@@ -18,8 +18,8 @@ const MapWithNoSSR = dynamic(() => import('../../components/MapComponent'), {
   ),
 });
 
-// Small badge to label sections visually
-function SectionLabel({ children }: { children: React.ReactNode }) {
+// Small badge to label sections visually (JSX-safe)
+function SectionLabel({ children }) {
   return (
     <span
       className="inline-block text-xs font-semibold tracking-wide uppercase bg-gray-100 text-gray-700 px-2 py-1 rounded"
@@ -30,27 +30,18 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-type SpringLoc = {
-  name: string;
-  state: string;
-  lat: number | string;
-  lon?: number | string; // incoming may be "lon"
-  lng?: number | string; // normalize to this
-  county?: string | null;
-};
-
 export default function SpringLocationsExplorer() {
-  const [allSprings, setAllSprings] = useState<SpringLoc[]>([]);
-  const [selectedState, setSelectedState] = useState<string | null>(null);
+  const [allSprings, setAllSprings] = useState([]);
+  const [selectedState, setSelectedState] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(null);
 
-  // Data fetching with cleanup
+  // Fetch data and keep an AbortController for cleanup
   useEffect(() => {
     let isMounted = true;
     const controller = new AbortController();
 
-    const loadData = async () => {
+    async function loadData() {
       try {
         setIsLoading(true);
         setLoadError(null);
@@ -63,14 +54,13 @@ export default function SpringLocationsExplorer() {
 
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-        const data: SpringLoc[] = await res.json();
-        if (isMounted) setAllSprings(data);
-      } catch (err: any) {
-        if (err?.name === 'AbortError') return;
+        const data = await res.json();
+        if (isMounted) setAllSprings(Array.isArray(data) ? data : []);
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
         console.error('Error loading spring data:', err);
         if (isMounted) {
           setLoadError('Could not load springs. Showing a tiny fallback.');
-          // Minimal fallback
           setAllSprings([
             { name: 'Blue Springs', state: 'Alabama', lat: 31.66128, lon: -85.50744, county: null },
           ]);
@@ -78,7 +68,7 @@ export default function SpringLocationsExplorer() {
       } finally {
         if (isMounted) setIsLoading(false);
       }
-    };
+    }
 
     loadData();
     return () => {
@@ -87,21 +77,27 @@ export default function SpringLocationsExplorer() {
     };
   }, []);
 
-  // Normalize for Leaflet: ensure {lat, lng} as numbers
+  // Normalize coordinates to {lat, lng} numbers for Leaflet
   const mapLocations = useMemo(() => {
     return allSprings
       .map((s) => {
         const lat = Number(s.lat);
-        const lng = s.lng !== undefined ? Number(s.lng) : Number((s as any).lon);
+        const lng =
+          s.lng !== undefined && s.lng !== null
+            ? Number(s.lng)
+            : s.lon !== undefined && s.lon !== null
+            ? Number(s.lon)
+            : undefined;
+
         if (Number.isFinite(lat) && Number.isFinite(lng)) {
           return { ...s, lat, lng };
         }
         return null;
       })
-      .filter(Boolean) as Array<SpringLoc & { lat: number; lng: number }>;
+      .filter(Boolean);
   }, [allSprings]);
 
-  // Memoized aggregates for stats + browsing
+  // Build stats + browsing structures from normalized mapLocations
   const {
     commonNamesData,
     statesMostData,
@@ -109,11 +105,11 @@ export default function SpringLocationsExplorer() {
     locationsByStateData,
     stateLocationsData,
   } = useMemo(() => {
-    const nameCounts: Record<string, number> = {};
-    const stateCounts: Record<string, number> = {};
+    const nameCounts = {};
+    const stateCounts = {};
 
     mapLocations.forEach((loc) => {
-      if (!loc.name) return;
+      if (!loc || !loc.name || !loc.state) return;
       nameCounts[loc.name] = (nameCounts[loc.name] || 0) + 1;
       stateCounts[loc.state] = (stateCounts[loc.state] || 0) + 1;
     });
@@ -128,8 +124,9 @@ export default function SpringLocationsExplorer() {
 
     const uniqueStatesData = Array.from(new Set(mapLocations.map((l) => l.state))).sort();
 
-    const locationsByStateData = mapLocations.reduce<Record<string, typeof mapLocations>>((acc, loc) => {
-      (acc[loc.state] ||= []).push(loc);
+    const locationsByStateData = mapLocations.reduce((acc, loc) => {
+      if (!acc[loc.state]) acc[loc.state] = [];
+      acc[loc.state].push(loc);
       return acc;
     }, {});
 
@@ -138,9 +135,9 @@ export default function SpringLocationsExplorer() {
     return { commonNamesData, statesMostData, uniqueStatesData, locationsByStateData, stateLocationsData };
   }, [mapLocations, selectedState]);
 
-  // Stable callback for location focus → opens your distance page in new tab
-  const focusOnLocation = useCallback((lat: number, lng: number, name: string) => {
-    const cleanName = name
+  // Open distance page in a new tab via POST (keeps your original flow)
+  const focusOnLocation = useCallback((lat, lng, name) => {
+    const cleanName = (name || '')
       .toLowerCase()
       .replace(/\s+/g, '-')
       .replace(/[^a-z0-9-]/g, '');
@@ -152,7 +149,7 @@ export default function SpringLocationsExplorer() {
     form.target = '_blank';
     form.style.display = 'none';
 
-    const addHidden = (n: string, v: string | number) => {
+    const addHidden = (n, v) => {
       const input = document.createElement('input');
       input.type = 'hidden';
       input.name = n;
@@ -161,15 +158,15 @@ export default function SpringLocationsExplorer() {
     };
 
     addHidden('lat', lat);
-    addHidden('lon', lng); // keep "lon" for your downstream handler if it expects lon
-    addHidden('lng', lng); // and also provide "lng" just in case
+    addHidden('lon', lng); // if your downstream expects "lon"
+    addHidden('lng', lng); // also provide "lng" for safety
 
     document.body.appendChild(form);
     form.submit();
     document.body.removeChild(form);
   }, []);
 
-  // Notable locations (static)
+  // Static list
   const notableLocations = useMemo(
     () => [
       { name: 'Hot Springs, AR', description: 'Historic spa town' },
@@ -184,7 +181,10 @@ export default function SpringLocationsExplorer() {
     <>
       <Head>
         <title>Spring Locations Explorer | LocateMyCity</title>
-        <meta name="description" content='Discover unique U.S. places with "Spring" in their name. Explore stats, browse by state, and view them on an interactive map.' />
+        <meta
+          name="description"
+          content='Discover unique U.S. places with "Spring" in their name. Explore stats, browse by state, and view them on an interactive map.'
+        />
         <meta name="robots" content="index, follow" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -210,7 +210,7 @@ export default function SpringLocationsExplorer() {
           </div>
         </section>
 
-        {/* SECTION: Stats */}
+        {/* SECTION: Quick Stats */}
         <section id="stats" className="stats-section" aria-labelledby="stats-title">
           <div className="container">
             <SectionLabel>Section: Quick Stats</SectionLabel>
@@ -283,8 +283,8 @@ export default function SpringLocationsExplorer() {
             {/* Pass normalized markers: { lat, lng } */}
             <MapWithNoSSR
               locations={mapLocations}
-              markers={mapLocations}   // (extra props in case your MapComponent expects different name)
-              points={mapLocations}
+              markers={mapLocations}   // compatible prop alias if needed
+              points={mapLocations}    // another alias just in case
             />
           </div>
         </section>
@@ -320,13 +320,13 @@ export default function SpringLocationsExplorer() {
                   <div className="countries-list">
                     {stateLocationsData.map((loc) => (
                       <div
-                        key={`${loc.name}-${loc.lat}-${(loc as any).lng}`}
+                        key={`${loc.name}-${loc.lat}-${loc.lng}`}
                         className="country-item"
                       >
                         <span className="country-name">{loc.name}</span>
                         <button
                           className="view-map-btn"
-                          onClick={() => focusOnLocation((loc as any).lat, (loc as any).lng, loc.name)}
+                          onClick={() => focusOnLocation(loc.lat, loc.lng, loc.name)}
                           style={{ width: '120px' }}
                         >
                           View on Map
@@ -357,13 +357,13 @@ export default function SpringLocationsExplorer() {
                     <div className="countries-list">
                       {locationsByStateData[state].map((loc) => (
                         <div
-                          key={`${loc.name}-${(loc as any).lat}-${(loc as any).lng}-all`}
+                          key={`${loc.name}-${loc.lat}-${loc.lng}-all`}
                           className="country-item"
                         >
                           <span className="country-name">{loc.name}</span>
                           <button
                             className="view-map-btn"
-                            onClick={() => focusOnLocation((loc as any).lat, (loc as any).lng, loc.name)}
+                            onClick={() => focusOnLocation(loc.lat, loc.lng, loc.name)}
                             style={{ width: '120px' }}
                           >
                             View on Map
@@ -382,3 +382,4 @@ export default function SpringLocationsExplorer() {
     </>
   );
 }
+
