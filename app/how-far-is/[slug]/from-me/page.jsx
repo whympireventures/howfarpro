@@ -766,7 +766,7 @@ const popularRoutes = useMemo(() => {
             {neighboringCountriesList}
           </div>
           <div className="footer-section">
-            <h4>Popular Routes to {destinationName.split(',')[0]}</h4>
+            <h4>Popular Search Routes to {destinationName.split(',')[0]}</h4>
             {popularRoutes}
           </div>
         </footer>
