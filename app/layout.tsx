@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LocateMyCity",
-  description: "LocateMyCity helps you instantly explore locations worldwide - from ghost towns to booming cities. Find distances, compare locations, and explore natural features.",
+  title: "How Far From Me ",
+  description: "Find Out How Far Places Are From Each Other",
  robots: "index, follow",
 };
 
