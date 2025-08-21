@@ -289,16 +289,41 @@ export default function DistanceResult() {
   }, []);
 
   // ---------------- Country Info ----------------
-  const fetchCountryData = useCallback(async (countryName) => {
-    if (!countryName || countryName === '--') return;
+ // Get country info (exact match first, then fuzzy) and load neighbors
+const fetchCountryData = useCallback(
+  async (countryName) => {
+    const name = (countryName || '').trim();
+    if (!name || name === '--') return;
+
     try {
-      const res = await fetch(
-        `https://restcountries.com/v3.1/name/${encodeURIComponent(countryName)}`
+      const FIELDS = 'name,cca2,currencies,languages,timezones,borders';
+
+      // 1) Try exact (official) match
+      let res = await fetch(
+        `https://restcountries.com/v3.1/name/${encodeURIComponent(
+          name
+        )}?fullText=true&fields=${FIELDS}`
       );
-      if (!res.ok) throw new Error('Failed to fetch country data');
-      const data = await res.json();
-      if (data?.length > 0) {
-        const country = data[0];
+      let data = res.ok ? await res.json() : null;
+
+      // 2) Fallback to fuzzy search if nothing exact
+      if (!Array.isArray(data) || data.length === 0) {
+        const res2 = await fetch(
+          `https://restcountries.com/v3.1/name/${encodeURIComponent(
+            name
+          )}?fields=${FIELDS}`
+        );
+        data = res2.ok ? await res2.json() : null;
+      }
+
+      if (Array.isArray(data) && data.length > 0) {
+        const lower = name.toLowerCase();
+        // Prefer exact common/official name; otherwise first result
+        const country =
+          data.find((c) => c?.name?.common?.toLowerCase() === lower) ||
+          data.find((c) => c?.name?.official?.toLowerCase() === lower) ||
+          data[0];
+
         setCountryInfo({
           currency: getFirstCurrency(country.currencies) || '--',
           languages: country.languages
@@ -308,34 +333,67 @@ export default function DistanceResult() {
             ? formatTimezone(country.timezones[0])
             : '--',
         });
-        if (country.borders?.length > 0)
-          fetchNeighboringCountries(country.borders);
+
+        if (Array.isArray(country.borders) && country.borders.length > 0) {
+          await fetchNeighboringCountries(country.borders);
+        } else {
+          setNeighboringCountries([]); // clear if none
+        }
+      } else {
+        // Not found → reset
+        setCountryInfo({ currency: '--', languages: '--', timezone: '--' });
+        setNeighboringCountries([]);
       }
     } catch (err) {
       console.error('Country info error:', err);
-    }
-  }, []);
-  useEffect(() => {
-    fetchCountryData(destinationCountry);
-  }, [destinationCountry, fetchCountryData]);
-
-  const fetchNeighboringCountries = useCallback(async (codes) => {
-    setLoadingNeighbors(true);
-    try {
-      const res = await fetch(
-        `https://restcountries.com/v3.1/alpha?codes=${codes.join(',')}`
-      );
-      const data = await res.json();
-      setNeighboringCountries(
-        data.map((c) => ({ name: c.name.common, code: c.cca2 }))
-      );
-    } catch (err) {
-      console.error('Neighbors error:', err);
+      setCountryInfo({ currency: '--', languages: '--', timezone: '--' });
       setNeighboringCountries([]);
-    } finally {
-      setLoadingNeighbors(false);
     }
-  }, []);
+  },
+  [fetchNeighboringCountries]
+);
+
+// Keep your effect the same
+useEffect(() => {
+  fetchCountryData(destinationCountry);
+}, [destinationCountry, fetchCountryData]);
+
+// Fetch neighboring countries from alpha codes
+const fetchNeighboringCountries = useCallback(async (codes = []) => {
+  if (!codes || codes.length === 0) {
+    setNeighboringCountries([]);
+    return;
+  }
+
+  setLoadingNeighbors(true);
+  try {
+    // Dedupe & normalize codes
+    const uniq = [...new Set(codes.map((c) => (c || '').toUpperCase()))];
+    const res = await fetch(
+      `https://restcountries.com/v3.1/alpha?codes=${uniq.join(
+        ','
+      )}&fields=name,cca2`
+    );
+    if (!res.ok) throw new Error('Failed to fetch neighboring countries');
+
+    const data = await res.json();
+    const list = (Array.isArray(data) ? data : [])
+      .map((c) => ({
+        name: c?.name?.common || c?.name?.official || c?.cca2,
+        code: c?.cca2,
+      }))
+      .filter((x) => x.name && x.code)
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    setNeighboringCountries(list);
+  } catch (err) {
+    console.error('Neighbors error:', err);
+    setNeighboringCountries([]);
+  } finally {
+    setLoadingNeighbors(false);
+  }
+}, []);
+
 
   // ---------------- Geolocation ----------------
   const getLocation = useCallback(async () => {
