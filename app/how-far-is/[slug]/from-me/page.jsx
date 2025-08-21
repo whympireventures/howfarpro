@@ -324,69 +324,71 @@ export default function DistanceResult() {
     []
   );
 
-  // ---------------- Lists (neighbors & popular) ----------------
-  const neighboringCountriesList = useMemo(() => {
-    if (loadingNeighbors) return <div className="spinner small"></div>;
-    if (neighboringCountries.length === 0)
-      return <p>No neighboring countries found or data unavailable.</p>;
+ // Neighboring countries list → pretty URLs
+const neighboringCountriesList = useMemo(() => {
+  if (loadingNeighbors) return <div className="spinner small"></div>;
+  if (neighboringCountries.length === 0)
+    return <p>No neighboring countries found or data unavailable.</p>;
 
-    const destSlug = (destinationName || '')
-      .split(',')[0]
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '');
+  const destSlug = (destinationName || '')
+    .split(',')[0]
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
 
-    return (
-      <ul className="routes-list">
-        {neighboringCountries.map((country, i) => {
-          const countrySlug = country.name
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-|-$/g, '');
-          return (
-            <li key={i} className="route-item">
-              <Link
-                href={`/location-from-location/how-far-is-${countrySlug}-from-${destSlug}`}
-                className="route-link"
-                prefetch={false}
-              >
-                How far is {country.name} from {destinationName.split(',')[0]}?
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    );
-  }, [loadingNeighbors, neighboringCountries, destinationName]);
+  return (
+    <ul className="routes-list">
+      {neighboringCountries.map((country, i) => {
+        const countrySlug = country.name
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '');
+        return (
+          <li key={i} className="route-item">
+            <Link
+              href={`/how-far-is-${countrySlug}-from-${destSlug}`}
+              className="route-link"
+              prefetch={false}
+            >
+              How far is {country.name} from {destinationName.split(',')[0]}?
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}, [loadingNeighbors, neighboringCountries, destinationName]);
 
-  const popularRoutes = useMemo(() => {
-    const cities = ['New York', 'London', 'Tokyo', 'Los Angeles'];
-    const destSlug = (destinationName || '')
-      .split(',')[0]
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '');
-    return (
-      <ul className="routes-list">
-        {cities.map((city, i) => {
-          const citySlug = city
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-|-$/g, '');
-          return (
-            <li key={i}>
-              <Link
-                href={`/location-from-location/how-far-is-${citySlug}-from-${destSlug}`}
-                prefetch={false}
-              >
-                {city} to {destinationName.split(',')[0]}
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    );
-  }, [destinationName]);
+// Popular routes → pretty URLs
+const popularRoutes = useMemo(() => {
+  const cities = ['New York', 'London', 'Tokyo', 'Los Angeles'];
+  const destSlug = (destinationName || '')
+    .split(',')[0]
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+  return (
+    <ul className="routes-list">
+      {cities.map((city, i) => {
+        const citySlug = city
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '');
+        return (
+          <li key={i}>
+            <Link
+              href={`/how-far-is-${citySlug}-from-${destSlug}`}
+              prefetch={false}
+            >
+              {city} to {destinationName.split(',')[0]}
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}, [destinationName]);
+
 
   // ---------------- Memoized UI bits ----------------
   const weatherIcon = useMemo(() => {
