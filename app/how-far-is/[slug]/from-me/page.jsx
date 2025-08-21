@@ -408,7 +408,7 @@ const neighboringCountriesList = useMemo(() => {
   if (!destinationPlace) {
     return (
       <>
-        <h4>Popular from {originName}</h4>
+        <h4>Nearby Locations to {originName}</h4>
         <p>Calculating suggestions…</p>
       </>
     );
