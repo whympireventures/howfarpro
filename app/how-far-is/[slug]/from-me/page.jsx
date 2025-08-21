@@ -383,7 +383,7 @@ const neighboringCountriesList = useMemo(() => {
   if (neighboringCountries.length > 0) {
     return (
       <>
-        <h4>How far is {originName} from neighboring countries?</h4>
+    
         <ul className="routes-list">
           {neighboringCountries.map((country, i) => {
             const countrySlug = slugify(country.name);
