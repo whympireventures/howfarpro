@@ -3,22 +3,18 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-
-// Site chrome
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 
-// Lazy map (client-only)
 const Map = dynamic(() => import('@/components/Map-comp'), {
   ssr: false,
   loading: () => <div className="map-loading">Loading map...</div>,
 });
 
-// ---------- helpers ----------
+// helpers (same as before) ...
 const toRad = (d: number) => (d * Math.PI) / 180;
 const kmToMiles = (km: number) => km * 0.621371;
 const milesToKm = (mi: number) => mi / 0.621371;
-
 const haversineKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
   const R = 6371;
   const dLat = toRad(lat2 - lat1);
@@ -29,23 +25,17 @@ const haversineKm = (lat1: number, lon1: number, lat2: number, lon2: number) => 
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 };
-
 const titleCase = (s = '') =>
-  s
-    .replace(/-/g, ' ')
+  s.replace(/-/g, ' ')
     .split(' ')
     .map((w) => (w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : ''))
     .join(' ')
     .trim();
-
 const slugToDisplay = (slug?: string) => titleCase(decodeURIComponent(slug || ''));
-
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
 const safeNumber = (v: any, d: number) => (Number.isFinite(Number(v)) ? Number(v) : d);
 
-// ---------- constants ----------
-const DATA_URL =
-  process.env.NEXT_PUBLIC_CITIES_URL || '/data/cities15000.min.json';
+const DATA_URL = process.env.NEXT_PUBLIC_CITIES_URL || '/data/cities15000.min.json';
 
 type City = {
   name: string;
@@ -65,45 +55,33 @@ export default function ClientPage({
   slug: string;
   toleranceParam?: string;
 }) {
-  // parse params passed from server page
   const desiredMiles = useMemo(() => safeNumber(miles, 0), [miles]);
   const originDisplay = useMemo(() => slugToDisplay(slug), [slug]);
-
-  // Optional ?tolerance=5 (miles) passed in from server searchParams
-  const toleranceMi = useMemo(
-    () => clamp(safeNumber(toleranceParam, 5), 0, 50),
-    [toleranceParam]
-  );
+  const toleranceMi = useMemo(() => clamp(safeNumber(toleranceParam, 5), 0, 50), [toleranceParam]);
 
   const [origin, setOrigin] = useState<{ name: string; lat: number; lon: number } | null>(null);
-  const [dataset, setDataset] = useState<City[]>([]);
   const [results, setResults] = useState<(City & { km: number; mi: number })[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // ---- 1) Geocode the origin (Nominatim)
-  const geocodeOrigin = useCallback(
-    async (name: string) => {
-      if (!name) return null;
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
-        name
-      )}&format=json&limit=1`;
-      const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
-      if (!res.ok) return null;
-      const data = await res.json();
-      if (Array.isArray(data) && data.length) {
-        const { lat, lon, display_name } = data[0];
-        return {
-          name: display_name?.split(',')[0] || originDisplay,
-          lat: parseFloat(lat),
-          lon: parseFloat(lon),
-        };
-      }
-      return null;
-    },
-    [originDisplay]
-  );
+  const geocodeOrigin = useCallback(async (name: string) => {
+    if (!name) return null;
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
+      name
+    )}&format=json&limit=1`;
+    const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (Array.isArray(data) && data.length) {
+      const { lat, lon, display_name } = data[0];
+      return {
+        name: display_name?.split(',')[0] || originDisplay,
+        lat: parseFloat(lat),
+        lon: parseFloat(lon),
+      };
+    }
+    return null;
+  }, [originDisplay]);
 
-  // ---- 2) Load the dataset
   const loadDataset = useCallback(async () => {
     const res = await fetch(DATA_URL, { cache: 'force-cache' });
     if (!res.ok) throw new Error('Failed to load cities15000 dataset');
@@ -111,32 +89,26 @@ export default function ClientPage({
     return Array.isArray(json) ? (json as City[]) : [];
   }, []);
 
-  // ---- 3) bootstrap
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         setLoading(true);
-        const [orig, data] = await Promise.all([
-          geocodeOrigin(originDisplay),
-          loadDataset(),
-        ]);
+        const [orig, data] = await Promise.all([geocodeOrigin(originDisplay), loadDataset()]);
         if (cancelled) return;
 
         setOrigin(orig);
-        setDataset(data);
 
         if (!orig || !data.length) {
           setResults([]);
           return;
         }
 
-        // Filter by distance ~ exactly X miles ± tolerance
         const targetKm = milesToKm(desiredMiles);
         const tolKm = milesToKm(toleranceMi);
 
         const matches = data
-          .map((c) => {
+          .map((c: City) => {
             const km = haversineKm(orig.lat, orig.lon, c.lat, c.lon);
             return { ...c, km, mi: kmToMiles(km) };
           })
@@ -167,9 +139,7 @@ export default function ClientPage({
       results.map((r) => ({
         lat: r.lat,
         lng: r.lon,
-        label: `${r.name}${r.admin1 ? `, ${r.admin1}` : ''}${
-          r.country ? `, ${r.country}` : ''
-        }`,
+        label: `${r.name}${r.admin1 ? `, ${r.admin1}` : ''}${r.country ? `, ${r.country}` : ''}`,
         miles: Math.round(r.mi),
       })),
     [results]
@@ -198,9 +168,7 @@ export default function ClientPage({
             {[2, 5, 10].map((tol) => (
               <Link
                 key={tol}
-                href={`/places-exactly-${desiredMiles}-miles-from-${encodeURIComponent(
-                  slug
-                )}?tolerance=${tol}`}
+                href={`/places-exactly-${desiredMiles}-miles-from-${encodeURIComponent(slug)}?tolerance=${tol}`}
                 className={`chip ${toleranceMi === tol ? 'active' : ''}`}
               >
                 ±{tol} mi
@@ -245,11 +213,7 @@ export default function ClientPage({
                     </div>
                     <div className="result-meta">
                       <span>{Math.round(r.mi)} mi</span>
-                      <Link
-                        className="result-link"
-                        href={`/how-far-is-${destSlug}-from-${originSlug}`}
-                        prefetch={false}
-                      >
+                      <Link className="result-link" href={`/how-far-is-${destSlug}-from-${originSlug}`} prefetch={false}>
                         View distance tool →
                       </Link>
                     </div>
