@@ -233,7 +233,7 @@ const Header = () => {
                 height="32"
                 loading="lazy"
               />
-              <h2>LocateMyCity</h2>
+              <h2>How Far From Me</h2>
             </div>
 
             <nav className="nav-links" aria-label="Main navigation">
