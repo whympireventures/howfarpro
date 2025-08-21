@@ -148,6 +148,7 @@ const FALLBACK_PLACES = [
   { label: 'Tokyo, Japan', coords: { lat: 35.6762, lon: 139.6503 } },
   { label: 'Sydney, Australia', coords: { lat: -33.8688, lon: 151.2093 } },
 ];
+  };
 
 // Weather icon mapping
 const WEATHER_ICONS = {
