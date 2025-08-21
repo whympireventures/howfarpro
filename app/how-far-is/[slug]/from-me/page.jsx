@@ -66,6 +66,10 @@ const formatTimezone = (timezone) => {
     return timezone.split('/').pop() || '--';
   }
 };
+const titleCase = (str) => (str || '')
+  .split(' ')
+  .map(w => /^[A-Z]{2,}$/.test(w) ? w : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+  .join(' ');
 
 // Slug + distance helpers
 const slugify = (s) =>
