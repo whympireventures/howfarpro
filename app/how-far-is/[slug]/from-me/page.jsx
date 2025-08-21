@@ -66,10 +66,15 @@ const formatTimezone = (timezone) => {
     return timezone.split('/').pop() || '--';
   }
 };
-const titleCase = (str) => (str || '')
-  .split(' ')
-  .map(w => /^[A-Z]{2,}$/.test(w) ? w : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-  .join(' ');
+
+// Properly capitalize names (keeps "UAE" etc.)
+const titleCase = (str) =>
+  (str || '')
+    .split(' ')
+    .map((w) =>
+      /^[A-Z]{2,}$/.test(w) ? w : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+    )
+    .join(' ');
 
 // Slug + distance helpers
 const slugify = (s) =>
@@ -94,15 +99,15 @@ const FALLBACK_PLACES = [
   { label: 'Miami, Florida', coords: { lat: 25.7617, lon: -80.1918 } },
   { label: 'Fort Lauderdale, Florida', coords: { lat: 26.1224, lon: -80.1373 } },
   { label: 'Orlando, Florida', coords: { lat: 28.5383, lon: -81.3792 } },
-  { label: 'Atlanta, Georgia', coords: { lat: 33.7490, lon: -84.3880 } },
-  { label: 'New York, New York', coords: { lat: 40.7128, lon: -74.0060 } },
+  { label: 'Atlanta, Georgia', coords: { lat: 33.749, lon: -84.388 } },
+  { label: 'New York, New York', coords: { lat: 40.7128, lon: -74.006 } },
   { label: 'Toronto, Canada', coords: { lat: 43.6532, lon: -79.3832 } },
   { label: 'Havana, Cuba', coords: { lat: 23.1136, lon: -82.3666 } },
   { label: 'Kingston, Jamaica', coords: { lat: 17.9714, lon: -76.7936 } },
   { label: 'Santo Domingo, Dominican Republic', coords: { lat: 18.4861, lon: -69.9312 } },
   { label: 'San Juan, Puerto Rico', coords: { lat: 18.4655, lon: -66.1057 } },
   { label: 'Cancún, Mexico', coords: { lat: 21.1619, lon: -86.8515 } },
-  { label: 'Bogotá, Colombia', coords: { lat: 4.7110, lon: -74.0721 } },
+  { label: 'Bogotá, Colombia', coords: { lat: 4.711, lon: -74.0721 } },
   { label: 'London, United Kingdom', coords: { lat: 51.5074, lon: -0.1278 } },
   { label: 'Paris, France', coords: { lat: 48.8566, lon: 2.3522 } },
   { label: 'Madrid, Spain', coords: { lat: 40.4168, lon: -3.7038 } },
@@ -113,7 +118,6 @@ const FALLBACK_PLACES = [
   { label: 'Tokyo, Japan', coords: { lat: 35.6762, lon: 139.6503 } },
   { label: 'Sydney, Australia', coords: { lat: -33.8688, lon: 151.2093 } },
 ];
-
 
 // Weather icon mapping
 const WEATHER_ICONS = {
@@ -192,7 +196,16 @@ export default function DistanceResult() {
     if (destination) setDestinationName(destination);
   }, [destination]);
 
-  // ---------------- Geocoding ----------------
+  const displayOrigin = useMemo(
+    () => titleCase((destinationName || '').split(',')[0].trim()),
+    [destinationName]
+  );
+  const originSlug = useMemo(
+    () => slugify((destinationName || '').split(',')[0].trim()),
+    [destinationName]
+  );
+
+  // ---------------- Geocoding (DESTINATION) ----------------
   const getPlaceDetails = useCallback(async (address) => {
     if (!address.trim()) return;
     try {
@@ -213,6 +226,7 @@ export default function DistanceResult() {
       console.error('Geocoding error:', err);
     }
   }, []);
+
   useEffect(() => {
     if (!destination) return;
     const timer = setTimeout(() => getPlaceDetails(destination), 300);
@@ -288,114 +302,100 @@ export default function DistanceResult() {
     }
   }, []);
 
-  // ---------------- Country Info ----------------
- // Get country info (exact match first, then fuzzy) and load neighbors
-const fetchCountryData = useCallback(
-  async (countryName) => {
-    const name = (countryName || '').trim();
-    if (!name || name === '--') return;
+  // ---------------- Country neighbors (declare FIRST) ----------------
+  const fetchNeighboringCountries = useCallback(async (codes = []) => {
+    if (!codes || codes.length === 0) {
+      setNeighboringCountries([]);
+      return;
+    }
 
+    setLoadingNeighbors(true);
     try {
-      const FIELDS = 'name,cca2,currencies,languages,timezones,borders';
-
-      // 1) Try exact (official) match
-      let res = await fetch(
-        `https://restcountries.com/v3.1/name/${encodeURIComponent(
-          name
-        )}?fullText=true&fields=${FIELDS}`
+      const uniq = [...new Set(codes.map((c) => (c || '').toUpperCase()))];
+      const res = await fetch(
+        `https://restcountries.com/v3.1/alpha?codes=${uniq.join(',')}&fields=name,cca2`
       );
-      let data = res.ok ? await res.json() : null;
+      if (!res.ok) throw new Error('Failed to fetch neighboring countries');
 
-      // 2) Fallback to fuzzy search if nothing exact
-      if (!Array.isArray(data) || data.length === 0) {
-        const res2 = await fetch(
+      const data = await res.json();
+      const list = (Array.isArray(data) ? data : [])
+        .map((c) => ({
+          name: c?.name?.common || c?.name?.official || c?.cca2,
+          code: c?.cca2,
+        }))
+        .filter((x) => x.name && x.code)
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+      setNeighboringCountries(list);
+    } catch (err) {
+      console.error('Neighbors error:', err);
+      setNeighboringCountries([]);
+    } finally {
+      setLoadingNeighbors(false);
+    }
+  }, []);
+
+  // ---------------- Country Info (uses fetchNeighboringCountries) ----------------
+  const fetchCountryData = useCallback(
+    async (countryName) => {
+      const name = (countryName || '').trim();
+      if (!name || name === '--') return;
+
+      try {
+        const FIELDS = 'name,cca2,currencies,languages,timezones,borders';
+
+        // exact match first
+        let res = await fetch(
           `https://restcountries.com/v3.1/name/${encodeURIComponent(
             name
-          )}?fields=${FIELDS}`
+          )}?fullText=true&fields=${FIELDS}`
         );
-        data = res2.ok ? await res2.json() : null;
-      }
+        let data = res.ok ? await res.json() : null;
 
-      if (Array.isArray(data) && data.length > 0) {
-        const lower = name.toLowerCase();
-        // Prefer exact common/official name; otherwise first result
-        const country =
-          data.find((c) => c?.name?.common?.toLowerCase() === lower) ||
-          data.find((c) => c?.name?.official?.toLowerCase() === lower) ||
-          data[0];
-
-        setCountryInfo({
-          currency: getFirstCurrency(country.currencies) || '--',
-          languages: country.languages
-            ? Object.values(country.languages).join(', ')
-            : '--',
-          timezone: country.timezones?.[0]
-            ? formatTimezone(country.timezones[0])
-            : '--',
-        });
-
-        if (Array.isArray(country.borders) && country.borders.length > 0) {
-          await fetchNeighboringCountries(country.borders);
-        } else {
-          setNeighboringCountries([]); // clear if none
+        // fuzzy fallback
+        if (!Array.isArray(data) || data.length === 0) {
+          const res2 = await fetch(
+            `https://restcountries.com/v3.1/name/${encodeURIComponent(name)}?fields=${FIELDS}`
+          );
+          data = res2.ok ? await res2.json() : null;
         }
-      } else {
-        // Not found → reset
+
+        if (Array.isArray(data) && data.length > 0) {
+          const lower = name.toLowerCase();
+          const country =
+            data.find((c) => c?.name?.common?.toLowerCase() === lower) ||
+            data.find((c) => c?.name?.official?.toLowerCase() === lower) ||
+            data[0];
+
+          setCountryInfo({
+            currency: getFirstCurrency(country.currencies) || '--',
+            languages: country.languages ? Object.values(country.languages).join(', ') : '--',
+            timezone: country.timezones?.[0] ? formatTimezone(country.timezones[0]) : '--',
+          });
+
+          if (Array.isArray(country.borders) && country.borders.length > 0) {
+            await fetchNeighboringCountries(country.borders);
+          } else {
+            setNeighboringCountries([]);
+          }
+        } else {
+          setCountryInfo({ currency: '--', languages: '--', timezone: '--' });
+          setNeighboringCountries([]);
+        }
+      } catch (err) {
+        console.error('Country info error:', err);
         setCountryInfo({ currency: '--', languages: '--', timezone: '--' });
         setNeighboringCountries([]);
       }
-    } catch (err) {
-      console.error('Country info error:', err);
-      setCountryInfo({ currency: '--', languages: '--', timezone: '--' });
-      setNeighboringCountries([]);
-    }
-  },
-  [fetchNeighboringCountries]
-);
+    },
+    [fetchNeighboringCountries]
+  );
 
-// Keep your effect the same
-useEffect(() => {
-  fetchCountryData(destinationCountry);
-}, [destinationCountry, fetchCountryData]);
+  useEffect(() => {
+    fetchCountryData(destinationCountry);
+  }, [destinationCountry, fetchCountryData]);
 
-// Fetch neighboring countries from alpha codes
-const fetchNeighboringCountries = useCallback(async (codes = []) => {
-  if (!codes || codes.length === 0) {
-    setNeighboringCountries([]);
-    return;
-  }
-
-  setLoadingNeighbors(true);
-  try {
-    // Dedupe & normalize codes
-    const uniq = [...new Set(codes.map((c) => (c || '').toUpperCase()))];
-    const res = await fetch(
-      `https://restcountries.com/v3.1/alpha?codes=${uniq.join(
-        ','
-      )}&fields=name,cca2`
-    );
-    if (!res.ok) throw new Error('Failed to fetch neighboring countries');
-
-    const data = await res.json();
-    const list = (Array.isArray(data) ? data : [])
-      .map((c) => ({
-        name: c?.name?.common || c?.name?.official || c?.cca2,
-        code: c?.cca2,
-      }))
-      .filter((x) => x.name && x.code)
-      .sort((a, b) => a.name.localeCompare(b.name));
-
-    setNeighboringCountries(list);
-  } catch (err) {
-    console.error('Neighbors error:', err);
-    setNeighboringCountries([]);
-  } finally {
-    setLoadingNeighbors(false);
-  }
-}, []);
-
-
-  // ---------------- Geolocation ----------------
+  // ---------------- Geolocation (SOURCE) ----------------
   const getLocation = useCallback(async () => {
     if (!navigator.geolocation) {
       setCurrentLocationText('Geolocation not supported');
@@ -418,135 +418,129 @@ const fetchNeighboringCountries = useCallback(async (codes = []) => {
     }
   }, []);
 
+  // Manual source location (user typed city/address)
+  const handleManualLocation = useCallback(async (address) => {
+    const q = (address || '').trim();
+    if (!q) return;
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
+        q
+      )}&format=json&limit=1`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        const p = data[0];
+        setUserLatitude(parseFloat(p.lat));
+        setUserLongitude(parseFloat(p.lon));
+        setCurrentLocationText(p.display_name);
+      }
+    } catch (err) {
+      console.error('Manual geocode error:', err);
+    }
+  }, []);
+
   // ---------------- Helpers ----------------
   const handleUnitChange = useCallback((newUnit) => setUnit(newUnit), []);
-  const capitalizeWords = useCallback(
-    (str) =>
-      str
-        ? str
-            .split(' ')
-            .map(
-              (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
-            )
-            .join(' ')
-        : '',
-    []
-  );
 
- // Neighboring countries list → dynamic fallback with distances and pretty URLs
-const neighboringCountriesList = useMemo(() => {
-  // Still loading?
-  if (loadingNeighbors) return <div className="spinner small"></div>;
+  // Neighboring countries / fallback list
+  const neighboringCountriesList = useMemo(() => {
+    if (loadingNeighbors) return <div className="spinner small"></div>;
 
-  const originName = (destinationName || '').split(',')[0].trim();
-  const originSlug = slugify(originName);
+    if (neighboringCountries.length > 0) {
+      return (
+        <>
+          <h4>How far is {displayOrigin} from neighboring countries?</h4>
+          <ul className="routes-list">
+            {neighboringCountries.map((country, i) => {
+              const countrySlug = slugify(country.name);
+              return (
+                <li key={i} className="route-item">
+                  <Link
+                    href={`/how-far-is-${originSlug}-from-${countrySlug}`}
+                    className="route-link"
+                    prefetch={false}
+                  >
+                    {displayOrigin} from {titleCase(country.name)}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      );
+    }
 
-  // If we have actual neighbors from REST Countries, show those links
-  if (neighboringCountries.length > 0) {
+    if (!destinationPlace) {
+      return (
+        <>
+          <h4>Nearby Locations to {displayOrigin}</h4>
+          <p>Calculating suggestions…</p>
+        </>
+      );
+    }
+
+    const oLat = +destinationPlace.lat;
+    const oLon = +destinationPlace.lon;
+
+    const items = FALLBACK_PLACES
+      .filter((p) => slugify(p.label) !== originSlug)
+      .map((p) => {
+        const km = haversineKm(oLat, oLon, p.coords.lat, p.coords.lon);
+        const miles = Math.round(kmToMiles(km));
+        return {
+          label: p.label,
+          slug: slugify(p.label),
+          miles,
+          href: `/how-far-is-${originSlug}-from-${slugify(p.label)}`,
+        };
+      })
+      .sort((a, b) => a.miles - b.miles)
+      .slice(0, 6);
+
     return (
       <>
-    
+        <h4>Popular from {displayOrigin}</h4>
         <ul className="routes-list">
-          {neighboringCountries.map((country, i) => {
-            const countrySlug = slugify(country.name);
-            return (
-              <li key={i} className="route-item">
-                <Link
-                  href={`/how-far-is-${originSlug}-from-${countrySlug}`}
-                  className="route-link"
-                  prefetch={false}
-                >
-                  {originName} from {country.name}
-                </Link>
-              </li>
-            );
-          })}
+          {items.map((it, i) => (
+            <li key={i} className="route-item">
+              <Link href={it.href} className="route-link" prefetch={false}>
+                {displayOrigin} from {titleCase(it.label)} — {it.miles} miles
+              </Link>
+            </li>
+          ))}
         </ul>
       </>
     );
-  }
+  }, [
+    loadingNeighbors,
+    neighboringCountries,
+    destinationPlace,
+    displayOrigin,
+    originSlug,
+  ]);
 
-  // Fallback: compute distances from the current destination to curated hubs
-  if (!destinationPlace) {
+  // Popular search routes (capitalize text, clean slugs)
+  const popularRoutes = useMemo(() => {
+    const cities = ['New York', 'London', 'Tokyo', 'Los Angeles'];
     return (
-      <>
-        <h4>Nearby Locations to {originName}</h4>
-        <p>Calculating suggestions…</p>
-      </>
-    );
-  }
-
-  const oLat = +destinationPlace.lat;
-  const oLon = +destinationPlace.lon;
-
-  const items = FALLBACK_PLACES
-    // don't link to itself if the hub name equals origin
-    .filter((p) => slugify(p.label) !== originSlug)
-    .map((p) => {
-      const km = haversineKm(oLat, oLon, p.coords.lat, p.coords.lon);
-      const miles = Math.round(kmToMiles(km));
-      return {
-        label: p.label,
-        slug: slugify(p.label),
-        miles,
-        href: `/how-far-is-${originSlug}-from-${slugify(p.label)}`,
-      };
-    })
-    .sort((a, b) => a.miles - b.miles)
-    .slice(0, 6); // show the 6 closest
-
-  return (
-    <>
-      <h4>Popular from {originName}</h4>
       <ul className="routes-list">
-        {items.map((it, i) => (
-          <li key={i} className="route-item">
-            <Link href={it.href} className="route-link" prefetch={false}>
-              {originName} from {it.label} — {it.miles} miles
-            </Link>
-          </li>
-        ))}
+        {cities.map((city, i) => {
+          const displayCity = titleCase(city);
+          const citySlug = slugify(city);
+          return (
+            <li key={i}>
+              <Link
+                href={`/how-far-is-${citySlug}-from-${originSlug}`}
+                prefetch={false}
+              >
+                {displayCity} to {displayOrigin}
+              </Link>
+            </li>
+          );
+        })}
       </ul>
-    </>
-  );
-}, [
-  loadingNeighbors,
-  neighboringCountries,
-  destinationName,
-  destinationPlace,
-]);
-
-
-// Popular routes → pretty URLs
-const popularRoutes = useMemo(() => {
-  const cities = ['New York', 'London', 'Tokyo', 'Los Angeles'];
-  const destSlug = (destinationName || '')
-    .split(',')[0]
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-  return (
-    <ul className="routes-list">
-      {cities.map((city, i) => {
-        const citySlug = city
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/^-|-$/g, '');
-        return (
-          <li key={i}>
-            <Link
-              href={`/how-far-is-${citySlug}-from-${destSlug}`}
-              prefetch={false}
-            >
-              {city} to {destinationName.split(',')[0]}
-            </Link>
-          </li>
-        );
-      })}
-    </ul>
-  );
-}, [destinationName]);
-
+    );
+  }, [displayOrigin, originSlug]);
 
   // ---------------- Memoized UI bits ----------------
   const weatherIcon = useMemo(() => {
