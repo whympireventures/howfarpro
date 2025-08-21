@@ -62,7 +62,92 @@ const formatTimezone = (timezone) => {
   } catch {
     return timezone.split('/').pop() || '--';
   }
+// Slug + distance helpers
+const slugify = (s) =>
+  (s || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+
+const haversineKm = (lat1, lon1, lat2, lon2) => {
+  const R = 6371;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
 };
+
+// Curated global hubs (add/remove freely)
+const FALLBACK_PLACES = [
+  { label: 'Miami, Florida', coords: { lat: 25.7617, lon: -80.1918 } },
+  { label: 'Fort Lauderdale, Florida', coords: { lat: 26.1224, lon: -80.1373 } },
+  { label: 'Orlando, Florida', coords: { lat: 28.5383, lon: -81.3792 } },
+  { label: 'Atlanta, Georgia', coords: { lat: 33.7490, lon: -84.3880 } },
+  { label: 'New York, New York', coords: { lat: 40.7128, lon: -74.0060 } },
+  { label: 'Toronto, Canada', coords: { lat: 43.6532, lon: -79.3832 } },
+  { label: 'Havana, Cuba', coords: { lat: 23.1136, lon: -82.3666 } },
+  { label: 'Kingston, Jamaica', coords: { lat: 17.9714, lon: -76.7936 } },
+  { label: 'Santo Domingo, Dominican Republic', coords: { lat: 18.4861, lon: -69.9312 } },
+  { label: 'San Juan, Puerto Rico', coords: { lat: 18.4655, lon: -66.1057 } },
+  { label: 'Cancún, Mexico', coords: { lat: 21.1619, lon: -86.8515 } },
+  { label: 'Bogotá, Colombia', coords: { lat: 4.7110, lon: -74.0721 } },
+  { label: 'London, United Kingdom', coords: { lat: 51.5074, lon: -0.1278 } },
+  { label: 'Paris, France', coords: { lat: 48.8566, lon: 2.3522 } },
+  { label: 'Madrid, Spain', coords: { lat: 40.4168, lon: -3.7038 } },
+  { label: 'Lisbon, Portugal', coords: { lat: 38.7223, lon: -9.1393 } },
+  { label: 'Dubai, UAE', coords: { lat: 25.2048, lon: 55.2708 } },
+  { label: 'Singapore', coords: { lat: 1.3521, lon: 103.8198 } },
+  { label: 'Bangkok, Thailand', coords: { lat: 13.7563, lon: 100.5018 } },
+  { label: 'Tokyo, Japan', coords: { lat: 35.6762, lon: 139.6503 } },
+  { label: 'Sydney, Australia', coords: { lat: -33.8688, lon: 151.2093 } },
+];
+// Slug + distance helpers
+const slugify = (s) =>
+  (s || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+
+const haversineKm = (lat1, lon1, lat2, lon2) => {
+  const R = 6371;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
+// Curated global hubs (add/remove freely)
+const FALLBACK_PLACES = [
+  { label: 'Miami, Florida', coords: { lat: 25.7617, lon: -80.1918 } },
+  { label: 'Fort Lauderdale, Florida', coords: { lat: 26.1224, lon: -80.1373 } },
+  { label: 'Orlando, Florida', coords: { lat: 28.5383, lon: -81.3792 } },
+  { label: 'Atlanta, Georgia', coords: { lat: 33.7490, lon: -84.3880 } },
+  { label: 'New York, New York', coords: { lat: 40.7128, lon: -74.0060 } },
+  { label: 'Toronto, Canada', coords: { lat: 43.6532, lon: -79.3832 } },
+  { label: 'Havana, Cuba', coords: { lat: 23.1136, lon: -82.3666 } },
+  { label: 'Kingston, Jamaica', coords: { lat: 17.9714, lon: -76.7936 } },
+  { label: 'Santo Domingo, Dominican Republic', coords: { lat: 18.4861, lon: -69.9312 } },
+  { label: 'San Juan, Puerto Rico', coords: { lat: 18.4655, lon: -66.1057 } },
+  { label: 'Cancún, Mexico', coords: { lat: 21.1619, lon: -86.8515 } },
+  { label: 'Bogotá, Colombia', coords: { lat: 4.7110, lon: -74.0721 } },
+  { label: 'London, United Kingdom', coords: { lat: 51.5074, lon: -0.1278 } },
+  { label: 'Paris, France', coords: { lat: 48.8566, lon: 2.3522 } },
+  { label: 'Madrid, Spain', coords: { lat: 40.4168, lon: -3.7038 } },
+  { label: 'Lisbon, Portugal', coords: { lat: 38.7223, lon: -9.1393 } },
+  { label: 'Dubai, UAE', coords: { lat: 25.2048, lon: 55.2708 } },
+  { label: 'Singapore', coords: { lat: 1.3521, lon: 103.8198 } },
+  { label: 'Bangkok, Thailand', coords: { lat: 13.7563, lon: 100.5018 } },
+  { label: 'Tokyo, Japan', coords: { lat: 35.6762, lon: 139.6503 } },
+  { label: 'Sydney, Australia', coords: { lat: -33.8688, lon: 151.2093 } },
+];
 
 // Weather icon mapping
 const WEATHER_ICONS = {
@@ -324,40 +409,89 @@ export default function DistanceResult() {
     []
   );
 
- // Neighboring countries list → pretty URLs
+ // Neighboring countries list → dynamic fallback with distances and pretty URLs
 const neighboringCountriesList = useMemo(() => {
+  // Still loading?
   if (loadingNeighbors) return <div className="spinner small"></div>;
-  if (neighboringCountries.length === 0)
-    return <p>No neighboring countries found or data unavailable.</p>;
 
-  const destSlug = (destinationName || '')
-    .split(',')[0]
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
+  const originName = (destinationName || '').split(',')[0].trim();
+  const originSlug = slugify(originName);
+
+  // If we have actual neighbors from REST Countries, show those links
+  if (neighboringCountries.length > 0) {
+    return (
+      <>
+        <h4>How far is {originName} from neighboring countries?</h4>
+        <ul className="routes-list">
+          {neighboringCountries.map((country, i) => {
+            const countrySlug = slugify(country.name);
+            return (
+              <li key={i} className="route-item">
+                <Link
+                  href={`/how-far-is-${originSlug}-from-${countrySlug}`}
+                  className="route-link"
+                  prefetch={false}
+                >
+                  {originName} from {country.name}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </>
+    );
+  }
+
+  // Fallback: compute distances from the current destination to curated hubs
+  if (!destinationPlace) {
+    return (
+      <>
+        <h4>Popular from {originName}</h4>
+        <p>Calculating suggestions…</p>
+      </>
+    );
+  }
+
+  const oLat = +destinationPlace.lat;
+  const oLon = +destinationPlace.lon;
+
+  const items = FALLBACK_PLACES
+    // don't link to itself if the hub name equals origin
+    .filter((p) => slugify(p.label) !== originSlug)
+    .map((p) => {
+      const km = haversineKm(oLat, oLon, p.coords.lat, p.coords.lon);
+      const miles = Math.round(kmToMiles(km));
+      return {
+        label: p.label,
+        slug: slugify(p.label),
+        miles,
+        href: `/how-far-is-${originSlug}-from-${slugify(p.label)}`,
+      };
+    })
+    .sort((a, b) => a.miles - b.miles)
+    .slice(0, 6); // show the 6 closest
 
   return (
-    <ul className="routes-list">
-      {neighboringCountries.map((country, i) => {
-        const countrySlug = country.name
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/^-|-$/g, '');
-        return (
+    <>
+      <h4>Popular from {originName}</h4>
+      <ul className="routes-list">
+        {items.map((it, i) => (
           <li key={i} className="route-item">
-            <Link
-              href={`/how-far-is-${countrySlug}-from-${destSlug}`}
-              className="route-link"
-              prefetch={false}
-            >
-              How far is {country.name} from {destinationName.split(',')[0]}?
+            <Link href={it.href} className="route-link" prefetch={false}>
+              {originName} from {it.label} — {it.miles} miles
             </Link>
           </li>
-        );
-      })}
-    </ul>
+        ))}
+      </ul>
+    </>
   );
-}, [loadingNeighbors, neighboringCountries, destinationName]);
+}, [
+  loadingNeighbors,
+  neighboringCountries,
+  destinationName,
+  destinationPlace,
+]);
+
 
 // Popular routes → pretty URLs
 const popularRoutes = useMemo(() => {
