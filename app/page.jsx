@@ -10,7 +10,7 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>Locate My City</title>
+        <title>How Far From Me</title>
         <meta charSet="UTF-8" />
         <meta name="robots" content="index, follow" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -30,8 +30,8 @@ export default function Home() {
               "@context": "https://schema.org",
               "@type": "WebApplication",
               "name": "LocateMyCity - Distance Calculator & Location Explorer",
-              "url": "https://www.locatemycity.com",
-              "description": "Calculate precise distances between locations, explore cities worldwide, and discover unique geographical features like rock formations and springs.",
+              "url": "https://www.howfarfromme.com",
+              "description": "Find Out How Far Places Are From Each Other",
               "applicationCategory": "TravelApplication",
               "operatingSystem": "Web Browser",
               "offers": {
@@ -45,7 +45,7 @@ export default function Home() {
                 "Rock city explorer",
                 "Spring city finder"
               ],
-              "screenshot": "https://www.locatemycity.com/images/app-screenshot.jpg",
+              "screenshot": "https://www.howfarfromme.com/images/app-screenshot.jpg",
               "creator": {
                 "@type": "Organization",
                 "name": "LocateMyCity"
