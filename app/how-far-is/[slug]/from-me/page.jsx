@@ -763,7 +763,6 @@ const popularRoutes = useMemo(() => {
         {/* Footer sections */}
         <footer className="page-footer">
           <div className="footer-section">
-            <h4>How far is {destinationName} from neighboring countries?</h4>
             {neighboringCountriesList}
           </div>
           <div className="footer-section">
