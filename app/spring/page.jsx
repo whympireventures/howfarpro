@@ -198,7 +198,7 @@ export default function SpringLocationsExplorer() {
       <Header />
 
       <main>
-        {/* SECTION: Hero */}
+    
         <section id="hero" className="page-hero" aria-labelledby="hero-title">
           <div className="container">
             <SectionLabel>Section: Hero</SectionLabel>
@@ -210,7 +210,7 @@ export default function SpringLocationsExplorer() {
           </div>
         </section>
 
-        {/* SECTION: Quick Stats */}
+      
         <section id="stats" className="stats-section" aria-labelledby="stats-title">
           <div className="container">
             <SectionLabel>Section: Quick Stats</SectionLabel>
@@ -274,7 +274,7 @@ export default function SpringLocationsExplorer() {
           </div>
         </section>
 
-        {/* SECTION: Map */}
+      
         <section id="map" className="map-section" aria-labelledby="map-title">
           <div className="container">
             <SectionLabel>Section: Interactive Map</SectionLabel>
