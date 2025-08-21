@@ -113,20 +113,35 @@ export default function DistanceResult() {
   const pathname = usePathname();
 
   // ---------------- Destination from path ----------------
-  const destination = useMemo(() => {
-    if (pathname) {
-      const pathMatch = pathname.match(/how-far-is-(.+?)(-from-me)?$/);
-      if (pathMatch) {
-        const rawName = pathMatch[1];
-        return decodeURIComponent(rawName).replace(/-/g, ' ').trim();
-      }
-    }
-    return null;
-  }, [pathname]);
+  
+const params = useParams();
 
-  useEffect(() => {
-    if (destination) setDestinationName(destination);
-  }, [destination]);
+const destination = useMemo(() => {
+  // Prefer the dynamic param when using internal route: /how-far-is/:slug/from-me
+  const s =
+    typeof params?.slug === 'string'
+      ? params.slug
+      : Array.isArray(params?.slug)
+      ? params.slug[0]
+      : null;
+
+  if (s) {
+    return decodeURIComponent(s).replace(/-/g, ' ').trim();
+  }
+
+  // Fallback: parse the pretty single-segment URL directly
+  // e.g. /how-far-is-miami-florida-from-me
+  if (pathname) {
+    const p = pathname.replace(/^\/+|\/+$/g, '');
+    const m = p.match(/^how-far-is-(.+)-from-me$/);
+    if (m) {
+      return decodeURIComponent(m[1]).replace(/-/g, ' ').trim();
+    }
+  }
+
+  return null;
+}, [params, pathname]);
+
 
   // ---------------- Geocoding ----------------
   const getPlaceDetails = useCallback(async (address) => {
