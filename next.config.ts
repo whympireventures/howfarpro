@@ -16,8 +16,11 @@ const nextConfig = {
 
   async rewrites() {
     return [
-      // Pretty hyphen URL → valid internal route (/how-far-is/[slug]/from-me)
+      // ✅ Pretty "from me" URL → valid internal segments
       { source: '/how-far-is-:slug-from-me', destination: '/how-far-is/:slug/from-me' },
+
+      // ✅ Pretty location→location URL → your existing internal handler
+      { source: '/how-far-is-:from-from-:to', destination: '/location-from-location/how-far-is-:from-from-:to' },
 
       // Dev API proxy
       {
@@ -32,12 +35,12 @@ const nextConfig = {
 
   async redirects() {
     return [
-      // Old URLs → pretty URL
-      {
-        source: '/location-from-me/:slug',
-        destination: '/how-far-is-:slug-from-me',
-        permanent: true,
-      },
+      // Old "from me" URLs → pretty URL
+      { source: '/location-from-me/:slug', destination: '/how-far-is-:slug-from-me', permanent: true },
+
+      // Old location→location URLs → pretty URL
+      { source: '/location-from-location/how-far-is-:from-from-:to', destination: '/how-far-is-:from-from-:to', permanent: true },
+
       // Existing redirect you had
       {
         source: '/location-from-location',
