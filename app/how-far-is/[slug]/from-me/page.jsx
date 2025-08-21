@@ -41,16 +41,19 @@ const Map = dynamic(() => import('@/components/Map-comp'), {
 // ---------------- Helper functions ----------------
 const toRad = (degrees) => (degrees * Math.PI) / 180;
 const kmToMiles = (km) => km * 0.621371;
+
 const formatTime = (timestamp, timezone) => {
   const date = new Date((timestamp + timezone) * 1000);
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
+
 const getFirstCurrency = (currencies) => {
   if (!currencies) return null;
   const currencyCode = Object.keys(currencies)[0];
   const currency = currencies[currencyCode];
   return `${currencyCode} (${currency.symbol || ''})`;
 };
+
 const formatTimezone = (timezone) => {
   if (!timezone) return '--';
   try {
@@ -62,6 +65,8 @@ const formatTimezone = (timezone) => {
   } catch {
     return timezone.split('/').pop() || '--';
   }
+};
+
 // Slug + distance helpers
 const slugify = (s) =>
   (s || '')
@@ -71,7 +76,6 @@ const slugify = (s) =>
 
 const haversineKm = (lat1, lon1, lat2, lon2) => {
   const R = 6371;
-  const toRad = (d) => (d * Math.PI) / 180;
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
   const a =
@@ -105,50 +109,7 @@ const FALLBACK_PLACES = [
   { label: 'Tokyo, Japan', coords: { lat: 35.6762, lon: 139.6503 } },
   { label: 'Sydney, Australia', coords: { lat: -33.8688, lon: 151.2093 } },
 ];
-// Slug + distance helpers
-const slugify = (s) =>
-  (s || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
 
-const haversineKm = (lat1, lon1, lat2, lon2) => {
-  const R = 6371;
-  const toRad = (d) => (d * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-};
-
-// Curated global hubs (add/remove freely)
-const FALLBACK_PLACES = [
-  { label: 'Miami, Florida', coords: { lat: 25.7617, lon: -80.1918 } },
-  { label: 'Fort Lauderdale, Florida', coords: { lat: 26.1224, lon: -80.1373 } },
-  { label: 'Orlando, Florida', coords: { lat: 28.5383, lon: -81.3792 } },
-  { label: 'Atlanta, Georgia', coords: { lat: 33.7490, lon: -84.3880 } },
-  { label: 'New York, New York', coords: { lat: 40.7128, lon: -74.0060 } },
-  { label: 'Toronto, Canada', coords: { lat: 43.6532, lon: -79.3832 } },
-  { label: 'Havana, Cuba', coords: { lat: 23.1136, lon: -82.3666 } },
-  { label: 'Kingston, Jamaica', coords: { lat: 17.9714, lon: -76.7936 } },
-  { label: 'Santo Domingo, Dominican Republic', coords: { lat: 18.4861, lon: -69.9312 } },
-  { label: 'San Juan, Puerto Rico', coords: { lat: 18.4655, lon: -66.1057 } },
-  { label: 'Cancún, Mexico', coords: { lat: 21.1619, lon: -86.8515 } },
-  { label: 'Bogotá, Colombia', coords: { lat: 4.7110, lon: -74.0721 } },
-  { label: 'London, United Kingdom', coords: { lat: 51.5074, lon: -0.1278 } },
-  { label: 'Paris, France', coords: { lat: 48.8566, lon: 2.3522 } },
-  { label: 'Madrid, Spain', coords: { lat: 40.4168, lon: -3.7038 } },
-  { label: 'Lisbon, Portugal', coords: { lat: 38.7223, lon: -9.1393 } },
-  { label: 'Dubai, UAE', coords: { lat: 25.2048, lon: 55.2708 } },
-  { label: 'Singapore', coords: { lat: 1.3521, lon: 103.8198 } },
-  { label: 'Bangkok, Thailand', coords: { lat: 13.7563, lon: 100.5018 } },
-  { label: 'Tokyo, Japan', coords: { lat: 35.6762, lon: 139.6503 } },
-  { label: 'Sydney, Australia', coords: { lat: -33.8688, lon: 151.2093 } },
-];
-  };
 
 // Weather icon mapping
 const WEATHER_ICONS = {
